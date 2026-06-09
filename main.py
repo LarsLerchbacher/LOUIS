@@ -14,6 +14,8 @@ class Model():
         self.name = name
         self.production = production
         self.nodes = []
+        
+        self.discover()
     
     def log(self, text: str) -> None:
         print(text)
@@ -60,6 +62,9 @@ class Model():
             elif "Confidence: " in line:
                 result["confidence"] = float(lines[i].removeprefix("Confidence: "))
             
+            elif "Activation: " in line:
+                result["activation"] = float(lines[i].removeprefix("Activation: "))
+            
             elif "## Relations" in line:
                 result["relations"] = []
             
@@ -96,7 +101,7 @@ class Model():
                         self.err(e)
             
 
-        props = [ "name", "known", "flagged", "confidence", "relations", "relations"]
+        props = [ "name", "known", "flagged", "confidence", "activation", "relations", "relations"]
         for prop in props:
             try:
                 result[prop]
@@ -107,18 +112,20 @@ class Model():
 
     
     def discover(self):
+        self.nodes = []
+
         for filename in os.listdir(self.name):
-            with open(os.path.join(self.name, filename), mode="r") as file:
-                content = file.read()
-                try:
-                    data = self.parseMarkdown(content)
-                    node = Node.fromJSON(data)
-                    self.nodes.append(node)
-                except RuntimeError as e:
-                    self.err(e)
+            if filename != ".obsidian":
+                with open(os.path.join(self.name, filename), mode="r") as file:
+                    content = file.read()
+                    try:
+                        data = self.parseMarkdown(content)
+                        node = Node.fromJSON(data)
+                        self.nodes.append(node)
+                    except RuntimeError as e:
+                        self.err(e)
 
 
 if __name__ == "__main__":
     model = Model("base", False)
-    model.discover()
     print(model.nodes[0])
