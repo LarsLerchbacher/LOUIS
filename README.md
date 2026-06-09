@@ -44,9 +44,9 @@ The nodes with the highest activation after a few cycles are outputed and fed in
 ### Output LLM
 This can be the same LLM as before, or a different one. It receives other instructions. This LLM should form natural language **ouput** from the activated nodes. The final response is then sent to the user. 
 
-## What is LOUIS able to do?
+## How can I use LOUIS?
 
-The base model of LOUIS will be fed with information from ConceptNet. This will serve as the base knowledge. When you want to create an AI using LOUIS, you can copy this base model and feed / learn it additional information. This can be done by talking to it or inserting more markdown files containing new nodes and relations. You can then teach it its identity and name.
+The base model of LOUIS will be fed with information from ConceptNet. This will serve as the base knowledge. When you want to create an AI using LOUIS, you can copy this base model and feed / teach it additional information. This can be done by talking to it or inserting more markdown files containing new nodes and relations. You can then teach it its identity and name.
 
 Afterwards, you should have your own AI, that is fully customized and really 'knows' what it is talking about.
 
