@@ -4,6 +4,7 @@ Known: true
 Flagged: false
 Confidence: 1.0
 Activation: 0.0
+Threshold: 1.0
 
 ## Relations
 |Relation|Target|Weight|Type|Last Activated|

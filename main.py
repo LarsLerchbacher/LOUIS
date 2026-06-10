@@ -89,6 +89,9 @@ class Model():
             elif "Activation: " in line:
                 result["activation"] = float(line.removeprefix("Activation: "))
             
+            elif "Threshold: " in line:
+                result["threshold"] = float(line.removeprefix("Threshold: "))
+            
             elif "## Relations" in line:
                 result["relations"] = []
             
@@ -125,7 +128,7 @@ class Model():
                         self.err(f"Unexpected error parsing relation at line {i}: {e}")
             
 
-        props = ["name", "known", "flagged", "confidence", "activation", "relations"]
+        props = ["name", "known", "flagged", "confidence", "activation", "threshold", "relations"]
         for prop in props:
             try:
                 result[prop]

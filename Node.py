@@ -3,16 +3,17 @@ from typing import TYPE_CHECKING
 
 class Node():
     """Represents a neuron"""
-    def __init__(self, name: str, known: bool = False, flagged: bool = True, confidence: float = 0.0, activation: float = 0.0, relations: list[Relation] = []):
+    def __init__(self, name: str, known: bool = False, flagged: bool = True, confidence: float = 0.0, activation: float = 0.0, threshold: float = 0.5, relations: list[Relation] = []):
         self.name = name
         self.known = known
         self.flagged = flagged
         self.confidence = confidence
         self.activation = activation
         self.relations = relations
+        self.threshold = threshold
 
     def fromJSON(json: str) -> Node:
-        return Node(json["name"], json["known"], json["flagged"], json["confidence"], json["activation"], json["relations"])
+        return Node(json["name"], json["known"], json["flagged"], json["confidence"], json["activation"], json["threshold"], json["relations"])
     
     def setName(self, name: str) -> None:
         self.name = name
@@ -53,6 +54,6 @@ class Node():
         return result
         
     def __str__(self):
-        return f"# {self.name}:\n\nKnown: {self.known}\nConfidence: {self.confidence}\nFlagged: {self.flagged}\nActivation: {self.activation}\n\n|Relation|Target|Weight|Type|\n|---|---|---|---|\n" + self.renderRelations()
+        return f"# {self.name}:\n\nKnown: {self.known}\nConfidence: {self.confidence}\nFlagged: {self.flagged}\nActivation: {self.activation}\nThreshold: {self.threshold}\n\n|Relation|Target|Weight|Type|\n|---|---|---|---|\n" + self.renderRelations()
 
 
