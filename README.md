@@ -1,8 +1,7 @@
 L.O.U.I.S
 =========
 
-Lars O. U. Intelligent System
-O and U are undefined at the moment. Suggestions are welcome :-)
+Lars Origianl Usefull Intelligent System<br>
 
 ## What is LOUIS
 LOUIS is an experiment to create a "better" generation of artificial intelligence, building upon the current generation of **LLMs** combined with the power of **semantic networks** with **spread activation**.
