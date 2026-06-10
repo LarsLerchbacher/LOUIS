@@ -4,6 +4,7 @@ import json
 import nltk
 import re
 import os
+import logging
 
 from Node import Node
 from Relation import Relation
@@ -15,19 +16,44 @@ class Model():
         self.production = production
         self.nodes = {}
         
+        self.setup_logging()
+        
         self.discover()
     
+    def setup_logging(self):
+        """Initialize logging system"""
+        # Create logs directory if it doesn't exist
+        log_dir = "logs"
+        if not os.path.exists(log_dir):
+            os.makedirs(log_dir)
+        
+        # Create log file with timestamp
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        log_filename = f"{log_dir}/{timestamp}.log"
+        
+        logging.basicConfig(
+            level=logging.DEBUG,
+            format='[%(asctime)s] [%(levelname)s] %(message)s',
+            datefmt='%Y-%m-%d %H:%M:%S',
+            handlers=[
+                logging.FileHandler(log_filename),
+                logging.StreamHandler() 
+            ]
+        )
+        
+        self.logger = logging.getLogger(__name__)
+    
     def log(self, text: str) -> None:
-        print(text)
-        # TODO: implement log
-
+        """Log debug information"""
+        self.logger.debug(text)
+    
     def warn(self, text: str) -> None:
-        print(text)
-        # TODO: implement warn
-
+        """Log warning information"""
+        self.logger.warning(text)
+    
     def err(self, text: str) -> None:
-        print(text)
-        # TODO: implement err
+        """Log error information"""
+        self.logger.error(text)
     
     def parseMarkdown(self, markdown: str):
         result = {}
@@ -36,9 +62,7 @@ class Model():
         lines = markdown.split("\n")
         
         # Remove empty lines
-        for line in lines:
-            if line == "":
-                lines.remove(line)
+        lines = [line for line in lines if line.strip() != ""]
         
         # Strip lines
         lines = [line.strip() for line in lines]
@@ -57,13 +81,13 @@ class Model():
                 result["known"] = bool(line.removeprefix("Known: "))
             
             elif "Flagged: " in line:
-                result["flagged"] = bool(lines[i].removeprefix("Flagged: "))
+                result["flagged"] = bool(line.removeprefix("Flagged: "))
             
             elif "Confidence: " in line:
-                result["confidence"] = float(lines[i].removeprefix("Confidence: "))
+                result["confidence"] = float(line.removeprefix("Confidence: "))
             
             elif "Activation: " in line:
-                result["activation"] = float(lines[i].removeprefix("Activation: "))
+                result["activation"] = float(line.removeprefix("Activation: "))
             
             elif "## Relations" in line:
                 result["relations"] = []
@@ -78,7 +102,7 @@ class Model():
                 # Remove the outer boundaries
                 line = line.removeprefix("|").removesuffix("|")
                 parts = line.split("|")
-                parts = [ p.strip() for p in parts]
+                parts = [p.strip() for p in parts]
                 
                 if len(parts) < 5:
                     self.err(f"Detected invalid relation at line {i}. Skipping relation")
@@ -96,16 +120,16 @@ class Model():
                     if "float" in str(e):
                         self.err(f"Detected invalid relation weight at line {i}. Skipping relation")
                     elif "isoformat" in str(e):
-                        self.err(f"Detected invalid relation weight at line {i}. Skipping relation")
+                        self.err(f"Detected invalid relation timestamp at line {i}. Skipping relation")
                     else:
-                        self.err(e)
+                        self.err(f"Unexpected error parsing relation at line {i}: {e}")
             
 
-        props = [ "name", "known", "flagged", "confidence", "activation", "relations", "relations"]
+        props = ["name", "known", "flagged", "confidence", "activation", "relations"]
         for prop in props:
             try:
                 result[prop]
-            except:
+            except KeyError:
                 raise RuntimeError(f"Missing node property '{prop}' detected. Skipping file")
         
         return result
@@ -116,19 +140,24 @@ class Model():
 
         for filename in os.listdir(self.name):
             if filename != ".obsidian":
-                with open(os.path.join(self.name, filename), mode="r") as file:
-                    content = file.read()
-                    try:
-                        data = self.parseMarkdown(content)
-                        node = Node.fromJSON(data)
-                        self.nodes[node.getName()] = node
-                    except RuntimeError as e:
-                        self.err(e)
+                filepath = os.path.join(self.name, filename)
+                try:
+                    with open(filepath, mode="r", encoding="utf-8") as file:
+                        content = file.read()
+                        try:
+                            data = self.parseMarkdown(content)
+                            node = Node.fromJSON(data)
+                            self.nodes[node.getName()] = node
+                            self.log(f"Successfully loaded node: {node.getName()}")
+                        except RuntimeError as e:
+                            self.err(f"Failed to parse file {filename}: {e}")
+                except Exception as e:
+                    self.err(f"Failed to read file {filename}: {e}")
     
     def getNode(self, name: str) -> Node:
         try:
             return self.nodes[name]
-        except IndexError:
+        except KeyError:
             self.warn(f"Node '{name}' not found!")
             return None
 
