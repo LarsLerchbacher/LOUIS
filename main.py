@@ -13,7 +13,7 @@ class Model():
     def __init__(self, name: str, production: bool):
         self.name = name
         self.production = production
-        self.nodes = []
+        self.nodes = {}
         
         self.discover()
     
@@ -112,7 +112,7 @@ class Model():
 
     
     def discover(self):
-        self.nodes = []
+        self.nodes = {}
 
         for filename in os.listdir(self.name):
             if filename != ".obsidian":
@@ -121,11 +121,17 @@ class Model():
                     try:
                         data = self.parseMarkdown(content)
                         node = Node.fromJSON(data)
-                        self.nodes.append(node)
+                        self.nodes[node.getName()] = node
                     except RuntimeError as e:
                         self.err(e)
-
+    
+    def getNode(self, name: str) -> Node:
+        try:
+            return self.nodes[name]
+        except IndexError:
+            self.warn(f"Node '{name}' not found!")
+            return None
 
 if __name__ == "__main__":
     model = Model("base", False)
-    print(model.nodes[0])
+    print(model.getNode("Template Node"))
