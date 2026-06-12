@@ -1,10 +1,8 @@
-from __future__ import annotations
 from datetime import datetime
-from typing import TYPE_CHECKING
 
 class Relation():
     """Represents a synapse, a connection between two neurons or, in this case, Nodes"""
-    def __init__(self, subj: Node, name: str, obj: Node, weight: float, rel_type: str, last_fired: datetime):
+    def __init__(self, subj: str, name: str, obj: str, weight: float, rel_type: str, last_fired: datetime):
         self.subj = subj 
         self.name = name 
         self.obj = obj 
@@ -12,16 +10,17 @@ class Relation():
         self.rel_type = rel_type
         self.last_fired = last_fired 
 
-    def fromJSON(json) -> Relation:
+    @staticmethod
+    def fromJSON(json) -> 'Relation':
         return Relation(json["subj"], json["name"], json["obj"], json["weight"], json["type"], json["last_fired"])
     
-    def getSubj(self) -> Node:
+    def getSubj(self) -> str:
         return self.subj
     
     def getName(self) -> str:
         return self.name
 
-    def getObj(self) -> Node:
+    def getObj(self) -> str:
         return self.obj
     
     def getWeight(self) -> float:
@@ -30,21 +29,21 @@ class Relation():
     def getRelType(self) -> str:
         return self.rel_type
 
-    def getLastFired(self) -> datetime:
-        return self.last_fired.isoformat()
+    def getLastFired(self) -> str:
+        return self.last_fired.isoformat() if isinstance(self.last_fired, datetime) else self.last_fired
     
-    def setSubj(self, subj: Node) -> None:
+    def setSubj(self, subj: str) -> None:
         self.subj = subj
     
     def setName(self, name: str) -> None:
         self.name = name
     
-    def setObj(self, obj: Node) -> None:
+    def setObj(self, obj: str) -> None:
         self.obj = obj
 
     def setWeight(self, weight: float) -> None:
-        # Sets threshold in the range of 0.0 - 1.0
-        self.weight = min(1.0, max(0.0, weight)) 
+        # Sets weight in the range of 0.0 - 1.0
+        self.weight = round(min(1.0, max(0.0, weight)), 4)
 
     def setRelType(self, rel_type: str) -> None:
         self.rel_type = rel_type

@@ -266,23 +266,23 @@ class Model():
                     if rel.getRelType() == "ACTIVATES":
                         if rel.getSubj() == node.getName():
                             target_name = rel.getObj()
-                            target_act = node.getActivation() * rel.getWeight()
+                            target_act = round(node.getActivation() * rel.getWeight(), 4)
                             self.log(f"Adding {target_act} activation to {target_name}")
                             stack.append((target_name, target_act))
                         else:
                             target_name = rel.getSubj()
-                            target_act = node.getActivation() * rel.getWeight()
+                            target_act = round(node.getActivation() * rel.getWeight(), 4)
                             self.log(f"Adding {target_act} activation to {target_name}")
                             stack.append((target_name, target_act))
                     else:
                         if rel.getSubj() == node.getName():
                             target_name = rel.getObj()
-                            target_act = node.getActivation() * rel.getWeight() * -1
+                            target_act = round(node.getActivation() * rel.getWeight() * -1, 4)
                             self.log(f"Removing {abs(target_act)} activation from {target_name}")
                             stack.append((target_name, target_act))
                         else:
                             target_name = rel.getSubj()
-                            target_act = node.getActivation() * rel.getWeight() * -1
+                            target_act = round(node.getActivation() * rel.getWeight() * -1, 4)
                             self.log(f"Removing {abs(target_act)} activation from {target_name}")
                             stack.append((target_name, target_act))
 

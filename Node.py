@@ -1,19 +1,18 @@
-from __future__ import annotations
-from typing import TYPE_CHECKING
-import math
+from Relation import Relation
 
 class Node():
     """Represents a neuron"""
-    def __init__(self, name: str, known: bool = False, flagged: bool = True, confidence: float = 0.0, activation: float = 0.0, threshold: float = 0.5, relations: list[Relation] = []):
+    def __init__(self, name: str, known: bool = False, flagged: bool = True, confidence: float = 0.0, activation: float = 0.0, threshold: float = 0.5, relations: list = None):
         self.name = name
         self.known = known
         self.flagged = flagged
         self.confidence = confidence
         self.activation = activation
-        self.relations = relations
+        self.relations = relations if relations is not None else []
         self.threshold = threshold
 
-    def fromJSON(json: str) -> Node:
+    @staticmethod
+    def fromJSON(json) -> 'Node':
         return Node(json["name"], json["known"], json["flagged"], json["confidence"], json["activation"], json["threshold"], json["relations"])
     
     def setName(self, name: str) -> None:
@@ -27,15 +26,15 @@ class Node():
     
     def setConfidence(self, confidence: float) -> None:
         # Sets confidence in the range of 0.0 - 1.0
-        self.confidence = min(1.0, max(0.0, confidence))
+        self.confidence = round(min(1.0, max(0.0, confidence)), 4)
         
     def setActivation(self, activation: float) -> None:
         # Sets activation in the range of 0.0 - 1.0
-        self.activation = min(1.0, max(0.0, activation))
+        self.activation = round(min(1.0, max(0.0, activation)), 4)
     
     def setThreshold(self, threshold: float) -> None:
         # Sets threshold in the range of 0.0 - 1.0
-        self.threshold = min(1.0, max(0.0, threshold))
+        self.threshold = round(min(1.0, max(0.0, threshold)), 4)
 
     def getName(self) -> str:
         return self.name
@@ -58,8 +57,8 @@ class Node():
     def getThreshold(self) -> float:
         return self.threshold
     
-    def addRelation(rel: Relation) -> None:
-        self.relations.add(rel)
+    def addRelation(self, rel: Relation) -> None:
+        self.relations.append(rel)
 
     def renderRelations(self) -> str:
         result = ""
