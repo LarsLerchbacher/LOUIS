@@ -291,14 +291,13 @@ class Model():
                 self.saveNode(current_name)
     
     def getOutput(self) -> list[Node]:
-        names = self.cursor.execute("SELECT name FROM nodes WHERE activation > 0.5 ORDER BY activation DESC;").fetchmany(25)
+        names = self.cursor.execute("SELECT name FROM nodes WHERE activation > 0.6 ORDER BY activation DESC;").fetchmany(25)
         nodes = [ self.getNode(name[0]) for name in names ] 
         return nodes
 
     
 if __name__ == "__main__":
     model = Model("base", False)
-    model.addActivation("mortal", 1.0)
+    model.addActivation("Socratese", 1.0)
     for node in model.getOutput():
         print(node.getName())
-    model.log(f"Available nodes: {list(model.nodes.keys())}") 
