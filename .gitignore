@@ -222,3 +222,7 @@ __marimo__/
 
 # Obsidian Dir
 base/.obsidian
+
+# Tempomary files
+logs
+tmp.db

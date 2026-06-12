@@ -29,6 +29,9 @@ class Relation():
         
     def getRelType(self) -> str:
         return self.rel_type
+
+    def getLastFired(self) -> datetime:
+        return self.last_fired.isoformat()
     
     def setSubj(self, subj: Node) -> None:
         self.subj = subj
@@ -40,8 +43,9 @@ class Relation():
         self.obj = obj
 
     def setWeight(self, weight: float) -> None:
-        self.weight = weight
-    
+        # Sets threshold in the range of 0.0 - 1.0
+        self.weight = min(1.0, max(0.0, weight)) 
+
     def setRelType(self, rel_type: str) -> None:
         self.rel_type = rel_type
 

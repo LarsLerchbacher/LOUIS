@@ -1,5 +1,6 @@
 from __future__ import annotations
 from typing import TYPE_CHECKING
+import math
 
 class Node():
     """Represents a neuron"""
@@ -21,17 +22,26 @@ class Node():
     def setKnown(self, known: bool) -> None:
         self.known = known
     
-    def setFlagged(flagged: bool) -> None:
+    def setFlagged(self, flagged: bool) -> None:
         self.flagged = flagged
     
-    def setConfidence(confidence: float) -> None:
-        self.confidence = confidence
+    def setConfidence(self, confidence: float) -> None:
+        # Sets confidence in the range of 0.0 - 1.0
+        self.confidence = min(1.0, max(0.0, confidence))
+        
+    def setActivation(self, activation: float) -> None:
+        # Sets activation in the range of 0.0 - 1.0
+        self.activation = min(1.0, max(0.0, activation))
+    
+    def setThreshold(self, threshold: float) -> None:
+        # Sets threshold in the range of 0.0 - 1.0
+        self.threshold = min(1.0, max(0.0, threshold))
 
     def getName(self) -> str:
         return self.name
     
     def getKnown(self) -> bool:
-        return self.knwon
+        return self.known
     
     def getFlagged(self) -> bool:
         return self.flagged
@@ -41,6 +51,12 @@ class Node():
     
     def getRelations(self) -> list[Relation]:
         return self.relations
+    
+    def getActivation(self) -> float:
+        return self.activation
+    
+    def getThreshold(self) -> float:
+        return self.threshold
     
     def addRelation(rel: Relation) -> None:
         self.relations.add(rel)
@@ -54,6 +70,6 @@ class Node():
         return result
         
     def __str__(self):
-        return f"# {self.name}:\n\nKnown: {self.known}\nConfidence: {self.confidence}\nFlagged: {self.flagged}\nActivation: {self.activation}\nThreshold: {self.threshold}\n\n|Relation|Target|Weight|Type|\n|---|---|---|---|\n" + self.renderRelations()
+        return f"# {self.name}\n\nKnown: {self.known}\nConfidence: {self.confidence}\nFlagged: {self.flagged}\nActivation: {self.activation}\nThreshold: {self.threshold}\n\n|Relation|Target|Weight|Type|Last Activated|\n|---|---|---|---|\n" + self.renderRelations()
 
 
