@@ -1,9 +1,16 @@
 from LLM import LLM
 
+
 class InputLLM(LLM):
-        def __init__(self, model: str, name: str):
-                super().__init__(model, name)
-                self.prompt = f"""
+    """Parses natural language input into structured JSON relations for the model.
+
+    The system prompt instructs the LLM to extract explicit relations only,
+    lemmatize verbs, and output JSON suitable for Model.parseJSON().
+    """
+
+    def __init__(self, model: str, name: str):
+        super().__init__(model, name)
+        self.prompt = f"""
 You are the input parser for a virtual AI named '{self.name}'. 
 You will receive raw text spoken to the AI. Extract ONLY the relations 
 explicitly stated in the text. Do NOT add, infer, or guess any relation, 

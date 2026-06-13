@@ -1,9 +1,16 @@
 from LLM import LLM
 
+
 class OutputLLM(LLM):
-        def __init__(self, model: str, name: str):
-                super().__init__(model, name)
-                self.prompt = f"""
+    """Generates natural language from activated nodes and their relations.
+
+    The system prompt instructs the LLM to convert relation triples into
+    fluent sentences, pluralizing generic categories and avoiding invented causality.
+    """
+
+    def __init__(self, model: str, name: str):
+        super().__init__(model, name)
+        self.prompt = f"""
 You are now the mouth of a virtual artificial intelligence named '{self.name}'. 
 Generate natural sentence(s) expressing these facts. Group facts 
 about the same subject together when it reads naturally. Facts that 
@@ -16,12 +23,12 @@ TYPES and must be converted to natural grammar:
 - causes → "leads to" / "results in"
 - has_property → expressed as an adjective
 
-Input:
-Relations:
-socrates -[is_a]-> human
-human -[is_a]-> mortal
-mortal -[causes]-> death
-Example Output: "Socrates is a human, and since all humans are mortal, he will eventually face death."
+
+Do not use the following data, unless it is present in the input or the activated nodes.
+dog -[is_a]-> animal 
+animal -[is_a]-> living organism 
+living organism -[has_property]-> alive 
+"Dogs are animals, which are living organims and since living organisms have the property of being alive, dogs are alive."
 
 When expressing is_a relations involving general categories 
 (not a specific named entity), prefer plural/generic phrasing 

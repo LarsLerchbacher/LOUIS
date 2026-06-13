@@ -1,8 +1,16 @@
 from Relation import Relation
 
-class Node():
-    """Represents a neuron"""
-    def __init__(self, name: str, known: bool = False, flagged: bool = True, confidence: float = 0.0, activation: float = 0.0, threshold: float = 0.5, relations: list = None):
+
+class Node:
+    """Represents a conceptual node in the knowledge graph.
+
+    Each node has activation energy, a firing threshold, and a set of
+    relations connecting it to other nodes. Comparable to a neuron.
+    """
+
+    def __init__(self, name: str, known: bool = False, flagged: bool = True,
+                 confidence: float = 0.0, activation: float = 0.0,
+                 threshold: float = 0.5, relations: list = None):
         self.name = name
         self.known = known
         self.flagged = flagged
@@ -12,63 +20,80 @@ class Node():
         self.threshold = threshold
 
     @staticmethod
-    def fromJSON(json) -> 'Node':
-        return Node(json["name"], json["known"], json["flagged"], json["confidence"], json["activation"], json["threshold"], json["relations"])
-    
-    def setName(self, name: str) -> None:
+    def fromJSON(json_dict: dict) -> 'Node':
+        """Create a Node from a parsed dictionary (e.g. from markdown parsing)."""
+        return Node(
+            json_dict["name"], json_dict["known"], json_dict["flagged"],
+            json_dict["confidence"], json_dict["activation"],
+            json_dict["threshold"], json_dict["relations"]
+        )
+
+    # --- Setters ---
+
+    def set_name(self, name: str) -> None:
         self.name = name
-    
-    def setKnown(self, known: bool) -> None:
+
+    def set_known(self, known: bool) -> None:
         self.known = known
-    
-    def setFlagged(self, flagged: bool) -> None:
+
+    def set_flagged(self, flagged: bool) -> None:
         self.flagged = flagged
-    
-    def setConfidence(self, confidence: float) -> None:
-        # Sets confidence in the range of 0.0 - 1.0
+
+    def set_confidence(self, confidence: float) -> None:
+        """Set confidence, clamped to [0.0, 1.0]."""
         self.confidence = round(min(1.0, max(0.0, confidence)), 4)
-        
-    def setActivation(self, activation: float) -> None:
-        # Sets activation in the range of 0.0 - 1.0
+
+    def set_activation(self, activation: float) -> None:
+        """Set activation, clamped to [0.0, 1.0]."""
         self.activation = round(min(1.0, max(0.0, activation)), 4)
-    
-    def setThreshold(self, threshold: float) -> None:
-        # Sets threshold in the range of 0.0 - 1.0
+
+    def set_threshold(self, threshold: float) -> None:
+        """Set firing threshold, clamped to [0.0, 1.0]."""
         self.threshold = round(min(1.0, max(0.0, threshold)), 4)
 
-    def getName(self) -> str:
+    # --- Getters ---
+
+    def get_name(self) -> str:
         return self.name
-    
-    def getKnown(self) -> bool:
+
+    def get_known(self) -> bool:
         return self.known
-    
-    def getFlagged(self) -> bool:
+
+    def get_flagged(self) -> bool:
         return self.flagged
 
-    def getConfidence(self) -> float:
+    def get_confidence(self) -> float:
         return self.confidence
-    
-    def getRelations(self) -> list[Relation]:
+
+    def get_relations(self) -> list[Relation]:
         return self.relations
-    
-    def getActivation(self) -> float:
+
+    def get_activation(self) -> float:
         return self.activation
-    
-    def getThreshold(self) -> float:
+
+    def get_threshold(self) -> float:
         return self.threshold
-    
-    def addRelation(self, rel: Relation) -> None:
+
+    def add_relation(self, rel: Relation) -> None:
+        """Append a relation to this node's list."""
         self.relations.append(rel)
 
-    def renderRelations(self) -> str:
-        result = ""
-        for rel in self.relations:
-            result += str(rel)
-            result += "\n"
-        
-        return result
-        
-    def __str__(self):
-        return f"# {self.name}\n\nKnown: {self.known}\nConfidence: {self.confidence}\nFlagged: {self.flagged}\nActivation: {self.activation}\nThreshold: {self.threshold}\n\n|Relation|Target|Weight|Type|Last Activated|Last Decayed|\n|---|---|---|---|---|---|\n" + self.renderRelations()
+    def render_relations(self) -> str:
+        """Return all relations as a markdown table rows string."""
+        return "\n".join(str(rel) for rel in self.relations) + "\n" if self.relations else ""
+
+    def __str__(self) -> str:
+        header = (
+            f"# {self.name}\n\n"
+            f"Known: {self.known}\n"
+            f"Confidence: {self.confidence}\n"
+            f"Flagged: {self.flagged}\n"
+            f"Activation: {self.activation}\n"
+            f"Threshold: {self.threshold}\n\n"
+            f"## Relations\n"
+            f"|Relation|Target|Weight|Type|Last Activated|Last Decayed|\n"
+            f"|---|---|---|---|---|---|\n"
+        )
+        return header + self.render_relations()
 
 
