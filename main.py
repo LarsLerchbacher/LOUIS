@@ -165,6 +165,42 @@ class Model():
         return result
 
     
+    def getParentNode(self, node: Node) -> Node | None:
+        """Walk direct is_a relations to find the parent node."""
+        name = node.getName()
+        results = self.cursor.execute("SELECT subj, obj FROM relations WHERE type == 'is_a' AND (subj == ? OR obj == ?);", (name, name)).fetchall()
+        for subj, obj in results:
+            parent_name = obj if subj == name else subj
+            return self.getNode(parent_name)
+        return None
+
+    def getInheritedRelations(self, node: Node) -> list[Relation]:
+        """Walk the is_a chain and collect inherited relations with weight decay per hop.
+        Only inherits relations that aren't already direct relations on the node."""
+        inherited = []
+        hop = 1
+        current = node
+        visited = {node.getName()}
+        while current:
+            parent = self.getParentNode(current)
+            if parent is None or parent.getName() in visited:
+                break
+            visited.add(parent.getName())
+            discount = 0.8 ** hop
+            parent_rels = self.getDirectRelations(parent)
+            for rel in parent_rels:
+                if rel.getRelType() == "is_a":
+                    continue
+                inherited_rel = Relation(
+                    rel.getSubj(), rel.getName(), rel.getObj(),
+                    round(rel.getWeight() * discount, 4),
+                    rel.getRelType(), rel.getLastFired()
+                )
+                inherited.append(inherited_rel)
+            current = parent
+            hop += 1
+        return inherited
+
     def discover(self):
         self.nodes = {}
 
@@ -201,6 +237,29 @@ class Model():
         self.saveNode(name)
         return node
     
+    def saveRelation(self, rel: Relation) -> None:
+        """Persist a relation's weight and last_fired to DB, sync to Node's in-memory list, then write markdown."""
+        try:
+            self.cursor.execute(
+                "UPDATE relations SET weight = ?, last_fired = ? WHERE subj == ? AND name == ? AND obj == ?;",
+                (rel.getWeight(), rel.getLastFired(), rel.getSubj(), rel.getName(), rel.getObj())
+            )
+            # Sync the relation back into the source Node's in-memory list
+            for node_name in (rel.getSubj(), rel.getObj()):
+                if node_name in self.nodes:
+                    node = self.nodes[node_name]
+                    for existing in node.getRelations():
+                        if (existing.getSubj() == rel.getSubj()
+                                and existing.getName() == rel.getName()
+                                and existing.getObj() == rel.getObj()):
+                            existing.setWeight(rel.getWeight())
+                            existing.setLastFired(rel.getLastFired())
+                            break
+            self.saveNode(rel.getSubj())
+            self.saveNode(rel.getObj())
+        except Exception as e:
+            self.err(f"Failed to save relation {rel.getName()} ({rel.getSubj()} -> {rel.getObj()}): {e}")
+
     def saveNode(self, name: str) -> None:
         try:
             node = self.nodes[name]
@@ -219,12 +278,21 @@ class Model():
         return Relation.fromJSON(data)
 
 
-    def getRelations(self, node: Node) -> list[Relation]:
+    def getDirectRelations(self, node: Node) -> list[Relation]:
+        """Returns only direct (non-inherited) relations from DB."""
         rels = []
         name = node.getName()
         results = self.cursor.execute("SELECT id FROM relations WHERE subj == ? OR obj == ?;", (name, name)).fetchall()
         for result in results:
             rels.append(self.getRelation(result[0]))
+        return rels
+
+    def getRelations(self, node: Node) -> list[Relation]:
+        """Returns direct + inherited relations for a node."""
+        rels = self.getDirectRelations(node)
+
+        inherited = self.getInheritedRelations(node)
+        rels.extend(inherited)
 
         return rels
         
@@ -262,7 +330,12 @@ class Model():
             # Check if the node's activation exceeds its threshold
             if node.getActivation() >= node.getThreshold():
                 # Process all relations for this node
+                seen_rels = set()
                 for rel in self.getRelations(node):
+                    rel_key = (rel.getSubj(), rel.getName(), rel.getObj())
+                    if rel_key in seen_rels:
+                        continue
+                    seen_rels.add(rel_key)
                     if rel.getRelType() == "ACTIVATES":
                         if rel.getSubj() == node.getName():
                             target_name = rel.getObj()
@@ -276,10 +349,13 @@ class Model():
                             stack.append((target_name, target_act))
                         
                         target = self.getNode(target_name)
-                        if target.getActivation() + target_act >= target.getThreshold():
+                        target_new_act = target.getActivation() + target_act
+                        if target_new_act >= target.getThreshold():
                             rel.setWeight(rel.getWeight() * 1.005)
                         else:
                             rel.setWeight(rel.getWeight() * 0.995)
+                        rel.setLastFired(datetime.now())
+                        self.saveRelation(rel)
 
                     else:
                         if rel.getSubj() == node.getName():
@@ -294,10 +370,14 @@ class Model():
                             stack.append((target_name, target_act))
                         
                         target = self.getNode(target_name)
-                        if target.getActivation() - target_act < target.getActivation() - 0.05:
+                        target_new_act = target.getActivation() + target_act
+                        dampened_act = target.getActivation() * 0.8
+                        if target_new_act < dampened_act:
                             rel.setWeight(rel.getWeight() * 1.005)
                         else:
                             rel.setWeight(rel.getWeight() * 0.995)
+                        rel.setLastFired(datetime.now())
+                        self.saveRelation(rel)
 
                 # Dampen the node's activation after processing
                 node.setActivation(node.getActivation() * 0.8)
