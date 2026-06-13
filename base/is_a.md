@@ -1,8 +1,8 @@
-# Template
+# is_a
 
 Known: True
-Confidence: 0.0
-Flagged: True
+Confidence: 1.0
+Flagged: False
 Activation: 0.0
 Threshold: 0.5
 

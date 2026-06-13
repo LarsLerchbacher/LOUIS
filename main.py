@@ -1,9 +1,11 @@
 from datetime import datetime
-import ollama
 import json
+from InputLLM import InputLLM
 import re
 import os
 import logging
+from LLM import LLM
+from OutputLLM import OutputLLM
 import sqlite3
 
 from Node import Node
@@ -16,12 +18,14 @@ class Model():
         self.production = production
         self.nodes = {}
         self.firedNodes = []
+        self.stack = set()
 
         self.setup_logging()
         self.setup_db()
         
         self.discover()
         self.decayRelations()
+        self.reduceActivation()
     
     def setup_logging(self):
         """Initialize logging system"""
@@ -178,7 +182,7 @@ class Model():
         return None
 
     def getInheritedRelations(self, node: Node) -> list[Relation]:
-        """Walk the is_a chain and collect inherited relations with weight decay per hop.
+        """Walk the is_a chain and collect inherited relations with weight decaSocratese is a humany per hop.
         Only inherits relations that aren't already direct relations on the node."""
         inherited = []
         hop = 1
@@ -250,6 +254,13 @@ class Model():
                 rel.setWeight(rel.getWeight() * modifier)
                 rel.setLastDecayed(datetime.now())
                 self.saveRelation(rel)
+
+    def reduceActivation(self) -> None:
+        for name_ in self.nodes:
+            node = self.getNode(name_)
+            node.setActivation(node.getActivation() * 0.2)
+            self.saveNode(node.getName())
+
     
     def saveRelation(self, rel: Relation) -> None:
         """Persist a relation's weight and last_fired to DB, sync to Node's in-memory list, then write markdown."""
@@ -310,23 +321,27 @@ class Model():
         rels.extend(inherited)
 
         return rels
+
+    def addRelation(self, subj: str, action: str, obj: str, rel_type: str = "ACTIVATES") -> None:
+        rel = Relation(subj, action, obj, 0.5, rel_type, datetime.now().isoformat(), datetime.now().isoformat())
+        self.cursor.execute("INSERT INTO relations (subj, name, obj, weight, type, last_fired, last_decayed) VALUES (?, ?, ?, ?, ?, ?, ?);", (subj, action, obj, 0.5, rel_type, rel.getLastFired(), rel.getLastDecayed()))
+        self.getNode(subj).addRelation(rel)
+        self.saveRelation(rel)
         
 
-    def addActivation(self, name: str, act: float):
-        for name_ in self.nodes:
-            node = self.getNode(name_)
-            node.setActivation(0.0)
-            self.saveNode(node.getName())
-
+    def addActivation(self, name: str, act: float, erase: bool = True):
         # Initialize the stack with the starting node and its activation
-        stack = []
-        stack.append((name, act))
+        if erase:
+            self.stack = set()
+            self.reduceActivation()
+        
+        self.stack.add((name, act))
 
         # Track nodes that have been processed in this activation cycle
         processed_nodes = set()
 
-        while stack:
-            current_name, current_act = stack.pop()
+        while self.stack:
+            current_name, current_act = self.stack.pop()
 
             # Skip if the node has already been processed in this cycle
             if current_name in processed_nodes:
@@ -345,76 +360,125 @@ class Model():
             # Check if the node's activation exceeds its threshold
             if node.getActivation() >= node.getThreshold():
                 # Build set of direct relation keys for this node
-                direct_keys = set()
+                self.direct_keys = set()
                 for direct_rel in self.getDirectRelations(node):
-                    direct_keys.add((direct_rel.getSubj(), direct_rel.getName(), direct_rel.getObj()))
+                    self.direct_keys.add((direct_rel.getSubj(), direct_rel.getName(), direct_rel.getObj()))
 
                 # Process all relations for this node (direct + inherited)
-                seen_rels = set()
+                self.seen_rels = set()
                 for rel in self.getRelations(node):
-                    rel_key = (rel.getSubj(), rel.getName(), rel.getObj())
-                    if rel_key in seen_rels:
-                        continue
-                    seen_rels.add(rel_key)
-
-                    is_inherited = rel_key not in direct_keys
-                    if rel.getRelType() == "ACTIVATES":
-                        if rel.getSubj() == node.getName():
-                            target_name = rel.getObj()
-                            target_act = round(node.getActivation() * rel.getWeight(), 4)
-                            self.log(f"Adding {target_act} activation to {target_name}")
-                            stack.append((target_name, target_act))
-                        else:
-                            target_name = rel.getSubj()
-                            target_act = round(node.getActivation() * rel.getWeight(), 4)
-                            self.log(f"Adding {target_act} activation to {target_name}")
-                            stack.append((target_name, target_act))
-                        
-                        target = self.getNode(target_name)
-                        if not is_inherited:
-                            target_new_act = target.getActivation() + target_act
-                            if target_new_act >= target.getThreshold():
-                                rel.setWeight(rel.getWeight() * 1.005)
-                            else:
-                                rel.setWeight(rel.getWeight() * 0.995)
-                            rel.setLastFired(datetime.now())
-                            self.saveRelation(rel)
-
-                    else:
-                        if rel.getSubj() == node.getName():
-                            target_name = rel.getObj()
-                            target_act = round(node.getActivation() * rel.getWeight() * -1, 4)
-                            self.log(f"Removing {abs(target_act)} activation from {target_name}")
-                            stack.append((target_name, target_act))
-                        else:
-                            target_name = rel.getSubj()
-                            target_act = round(node.getActivation() * rel.getWeight() * -1, 4)
-                            self.log(f"Removing {abs(target_act)} activation from {target_name}")
-                            stack.append((target_name, target_act))
-                        
-                        target = self.getNode(target_name)
-                        if not is_inherited:
-                            target_new_act = target.getActivation() + target_act
-                            dampened_act = target.getActivation() * 0.8
-                            if target_new_act < dampened_act:
-                                rel.setWeight(rel.getWeight() * 1.005)
-                            else:
-                                rel.setWeight(rel.getWeight() * 0.995)
-                            rel.setLastFired(datetime.now())
-                            self.saveRelation(rel)
+                    self.strengthenRel(node, rel)
 
                 # Dampen the node's activation after processing
                 node.setActivation(node.getActivation() * 0.8)
                 self.saveNode(current_name)
     
+    def strengthenRel(self, node: Node, rel: Relation) -> None:
+        rel_key = (rel.getSubj(), rel.getName(), rel.getObj())
+        if rel_key in self.seen_rels:
+            return
+        self.seen_rels.add(rel_key)
+
+        is_inherited = rel_key not in self.direct_keys
+        if rel.getRelType() == "ACTIVATES":
+            if rel.getSubj() == node.getName():
+                target_name = rel.getObj()
+                target_act = round(node.getActivation() * rel.getWeight(), 4)
+                self.log(f"Adding {target_act} activation to {target_name}")
+                self.stack.add((target_name, target_act))
+            else:
+                target_name = rel.getSubj()
+                target_act = round(node.getActivation() * rel.getWeight(), 4)
+                self.log(f"Adding {target_act} activation to {target_name}")
+                self.stack.add((target_name, target_act))
+            
+            target = self.getNode(target_name)
+            if not is_inherited:
+                target_new_act = target.getActivation() + target_act
+                if target_new_act >= target.getThreshold():
+                    rel.setWeight(rel.getWeight() * 1.005)
+                else:
+                    rel.setWeight(rel.getWeight() * 0.995)
+                rel.setLastFired(datetime.now())
+                self.saveRelation(rel)
+
+        else:
+            if rel.getSubj() == node.getName():
+                target_name = rel.getObj()
+                target_act = round(node.getActivation() * rel.getWeight() * -1, 4)
+                self.log(f"Removing {abs(target_act)} activation from {target_name}")
+                self.stack.add((target_name, target_act))
+            else:
+                target_name = rel.getSubj()
+                target_act = round(node.getActivation() * rel.getWeight() * -1, 4)
+                self.log(f"Removing {abs(target_act)} activation from {target_name}")
+                self.stack.add((target_name, target_act))
+            
+            target = self.getNode(target_name)
+            if not is_inherited:
+                target_new_act = target.getActivation() + target_act
+                dampened_act = target.getActivation() * 0.8
+                if target_new_act < dampened_act:
+                    rel.setWeight(rel.getWeight() * 1.005)
+                else:
+                    rel.setWeight(rel.getWeight() * 0.995)
+                rel.setLastFired(datetime.now())
+                self.saveRelation(rel) 
+
     def getOutput(self) -> list[Node]:
         names = self.cursor.execute("SELECT name FROM nodes WHERE activation > 0.6 ORDER BY activation DESC;").fetchmany(25)
         nodes = [ self.getNode(name[0]) for name in names ] 
         return nodes
 
     
+    def feedInput(self, subj: str, rel: str, obj: str, rel_type: str = "ACTIVATES") -> None:
+        self.stack.add((subj, 1.0))
+        self.stack.add((rel, 1.0))
+        self.addActivation(obj, 1.0, False)
+        
+        id = self.cursor.execute("SELECT id FROM relations WHERE subj = ? AND name = ? AND obj = ? AND type = ?;", (subj, rel, obj, rel_type)).fetchone()[0]
+        if id == None:
+            self.addRelation(subj, rel, obj, rel_type)
+            id = self.cursor.lastrowid
+        self.strengthenRel(self.getNode(subj), self.getRelation(id))
+
+    def parseJSON(self, data: str) -> int:
+        self.log(data)
+        data = json.loads(data)
+        try:
+            for mod in data["modifiers"]:
+                if mod != data["subject"] and mod != data["action"] and mod != data["object"]:
+                    self.stack.add((mod, 0.5))
+            for node in data["tokens"]:
+                if node != data["subject"] and node != data["action"] and node != data["object"]:
+                    self.stack.add((node, 0.3))
+            self.feedInput(data["subject"], data["action"], data["object"], data["effect"])
+
+            return 0
+        except KeyError as e:
+            self.err("Failed to parse JSON data. Model returend an invalid response. Aborting turn!")
+            self.err(e)
+            return -1
+
+    
 if __name__ == "__main__":
+    message = "Socratese is a Human."
+
     model = Model("base", False)
-    model.addActivation("Socratese", 1.0)
-    for node in model.getOutput():
-        print(node.getName())
+    inLLM = InputLLM("lfm2.5", model.name)
+    OutLLM = OutputLLM("lfm2.5", model.name)
+
+    
+    if model.parseJSON(inLLM.send(message)) == 0:
+        output = model.getOutput()
+        outRels = []
+        for node in output:
+            model.log(node.getName())
+            for rel in model.getRelations(node):
+                if model.getNode(rel.getSubj()) in output and model.getNode(rel.getObj()) in output:
+                    outRels.append(f"{rel.getSubj()} --> {rel.getName()} --> {rel.getObj()} ({rel.getRelType()})")
+        model.log(outRels)
+        outMessage = "Input: " + message + "\nOutput: " + str([node.getName() for node in output]) + "\nRelations between output nodes: " + str(outRels) 
+        model.log(outMessage)
+        response = OutLLM.send(outMessage)
+        print(response)
