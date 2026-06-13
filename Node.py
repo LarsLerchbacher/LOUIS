@@ -90,6 +90,7 @@ class Node:
             f"Flagged: {self.flagged}\n"
             f"Activation: {self.activation}\n"
             f"Threshold: {self.threshold}\n\n"
+            f"## Relations\n"
             f"|Relation|Target|Weight|Type|Last Activated|Last Decayed|\n"
             f"|---|---|---|---|---|---|\n"
         )

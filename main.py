@@ -135,7 +135,7 @@ class Model:
             elif "## Relations" in line:
                 result["relations"] = []
             # Skip table header and separator rows
-            elif "|Relation|Target|Weight|Type|Last Activated|Last Decayed" in line:
+            elif "|Relation|Target|Weight|Type|Last Activated|Last Decayed|" in line:
                 continue
             elif "|---|---|---|---|---|---|" in line:
                 continue
