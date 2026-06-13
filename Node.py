@@ -69,6 +69,6 @@ class Node():
         return result
         
     def __str__(self):
-        return f"# {self.name}\n\nKnown: {self.known}\nConfidence: {self.confidence}\nFlagged: {self.flagged}\nActivation: {self.activation}\nThreshold: {self.threshold}\n\n|Relation|Target|Weight|Type|Last Activated|\n|---|---|---|---|\n" + self.renderRelations()
+        return f"# {self.name}\n\nKnown: {self.known}\nConfidence: {self.confidence}\nFlagged: {self.flagged}\nActivation: {self.activation}\nThreshold: {self.threshold}\n\n|Relation|Target|Weight|Type|Last Activated|Last Decayed|\n|---|---|---|---|---|---|\n" + self.renderRelations()
 
 

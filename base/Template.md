@@ -3,8 +3,8 @@
 Known: True
 Confidence: 0.0
 Flagged: True
-Activation: 0.40960000000000013
+Activation: 0.0
 Threshold: 0.5
 
-|Relation|Target|Weight|Type|Last Activated|
-|---|---|---|---|
+|Relation|Target|Weight|Type|Last Activated|Last Decayed|
+|---|---|---|---|---|---|

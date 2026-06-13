@@ -6,5 +6,5 @@ Flagged: True
 Activation: 0.0
 Threshold: 0.5
 
-|Relation|Target|Weight|Type|Last Activated|
-|---|---|---|---|
+|Relation|Target|Weight|Type|Last Activated|Last Decayed|
+|---|---|---|---|---|---|

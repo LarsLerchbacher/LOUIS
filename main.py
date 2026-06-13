@@ -21,6 +21,7 @@ class Model():
         self.setup_db()
         
         self.discover()
+        self.decayRelations()
     
     def setup_logging(self):
         """Initialize logging system"""
@@ -68,7 +69,8 @@ class Model():
             obj VARCHAR(100) NOT NULL,
             weight DOUBLE NOT NULL,
             type VARCHAR(8) NOT NULL,
-            last_fired VARCHAR(20) 
+            last_fired VARCHAR(20),
+            last_decayed VARCHAR(20)
         );""")
     
     def log(self, text: str) -> None:
@@ -124,7 +126,7 @@ class Model():
                 result["relations"] = []
             
             # Skip relation table start
-            elif "|Relation|Target|Weight|Type|Last Activated|" in line or "|---|---|---|---|" in line:
+            elif "|Relation|Target|Weight|Type|Last Activated|Last Decayed" in line or "|---|---|---|---|---|---|" in line:
                 result["relations"] = []
             
             else:
@@ -145,6 +147,7 @@ class Model():
                     rel["weight"] = float(parts[2])
                     rel["type"] = parts[3] 
                     rel["last_fired"] = datetime.fromisoformat(parts[4])
+                    rel["last_decayed"] = datetime.fromisoformat(parts[5])
                     result["relations"].append(Relation.fromJSON(rel))
                 except ValueError as e:
                     if "float" in str(e):
@@ -215,7 +218,7 @@ class Model():
                             node = Node.fromJSON(data)
                             self.nodes[node.getName()] = node
                             for rel in node.getRelations():
-                                self.cursor.execute("INSERT INTO relations (subj, name, obj, weight, type, last_fired) VALUES (?, ?, ?, ?, ?, ?);", (rel.getSubj(), rel.getName(), rel.getObj(), rel.getWeight(), rel.getRelType(), rel.getLastFired()))
+                                self.cursor.execute("INSERT INTO relations (subj, name, obj, weight, type, last_fired, last_decayed) VALUES (?, ?, ?, ?, ?, ?, ?);", (rel.getSubj(), rel.getName(), rel.getObj(), rel.getWeight(), rel.getRelType(), rel.getLastFired(), rel.getLastDecayed()))
                             self.cursor.execute("INSERT INTO nodes (name, known, flagged, confidence, activation, threshold) VALUES (?, ?, ?, ?, ?, ?);", (node.getName(), node.getKnown(), node.getFlagged(), node.getConfidence(), node.getActivation(), node.getThreshold()))
                             self.log(f"Successfully loaded node: {node.getName()}")
                         except RuntimeError as e:
@@ -236,13 +239,24 @@ class Model():
         self.nodes[name] = (node)
         self.saveNode(name)
         return node
+
+    def decayRelations(self) -> None:
+        for name in self.nodes:
+            node = self.getNode(name)
+            for rel in self.getRelations(node):
+                lastDec = rel.getLastDecayed()
+                delta = datetime.now() - datetime.fromisoformat(lastDec)
+                modifier = 0.999 ** delta.days
+                rel.setWeight(rel.getWeight() * modifier)
+                rel.setLastDecayed(datetime.now())
+                self.saveRelation(rel)
     
     def saveRelation(self, rel: Relation) -> None:
         """Persist a relation's weight and last_fired to DB, sync to Node's in-memory list, then write markdown."""
         try:
             self.cursor.execute(
-                "UPDATE relations SET weight = ?, last_fired = ? WHERE subj == ? AND name == ? AND obj == ?;",
-                (rel.getWeight(), rel.getLastFired(), rel.getSubj(), rel.getName(), rel.getObj())
+                "UPDATE relations SET weight = ?, last_fired = ?, last_decayed = ? WHERE subj == ? AND name == ? AND obj == ?;",
+                (rel.getWeight(), rel.getLastFired(), rel.getLastDecayed(), rel.getSubj(), rel.getName(), rel.getObj())
             )
             # Sync the relation back into the source Node's in-memory list
             for node_name in (rel.getSubj(), rel.getObj()):
@@ -254,6 +268,7 @@ class Model():
                                 and existing.getObj() == rel.getObj()):
                             existing.setWeight(rel.getWeight())
                             existing.setLastFired(rel.getLastFired())
+                            existing.setLastDecayed(rel.getLastDecayed())
                             break
             self.saveNode(rel.getSubj())
             self.saveNode(rel.getObj())
@@ -274,7 +289,7 @@ class Model():
 
     def getRelation(self, id: int) -> Relation:
         raw = self.cursor.execute("SELECT * FROM relations WHERE id == ?;", (id, )).fetchone()
-        data = { "subj": raw[1], "name": raw[2], "obj": raw[3], "weight": raw[4], "type": raw[5], "last_fired": datetime.fromisoformat(raw[6]) }
+        data = { "subj": raw[1], "name": raw[2], "obj": raw[3], "weight": raw[4], "type": raw[5], "last_fired": datetime.fromisoformat(raw[6]), "last_decayed": datetime.fromisoformat(raw[7]) }
         return Relation.fromJSON(data)
 
 
