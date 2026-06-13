@@ -274,6 +274,13 @@ class Model():
                             target_act = round(node.getActivation() * rel.getWeight(), 4)
                             self.log(f"Adding {target_act} activation to {target_name}")
                             stack.append((target_name, target_act))
+                        
+                        target = self.getNode(target_name)
+                        if target.getActivation() + target_act >= target.getThreshold():
+                            rel.setWeight(rel.getWeight() * 1.005)
+                        else:
+                            rel.setWeight(rel.getWeight() * 0.995)
+
                     else:
                         if rel.getSubj() == node.getName():
                             target_name = rel.getObj()
@@ -285,6 +292,12 @@ class Model():
                             target_act = round(node.getActivation() * rel.getWeight() * -1, 4)
                             self.log(f"Removing {abs(target_act)} activation from {target_name}")
                             stack.append((target_name, target_act))
+                        
+                        target = self.getNode(target_name)
+                        if target.getActivation() - target_act < target.getActivation() - 0.05:
+                            rel.setWeight(rel.getWeight() * 1.005)
+                        else:
+                            rel.setWeight(rel.getWeight() * 0.995)
 
                 # Dampen the node's activation after processing
                 node.setActivation(node.getActivation() * 0.8)
