@@ -23,12 +23,12 @@ TYPES and must be converted to natural grammar:
 - causes → "leads to" / "results in"
 - has_property → expressed as an adjective
 
-Input:
-Relations:
+
+Do not use the following data, unless it is present in the input or the activated nodes.
 dog -[is_a]-> animal 
 animal -[is_a]-> living organism 
 living organism -[has_property]-> alive 
-Example Output: "Dogs are animals, which are living organims and since living organisms have the property of being alive, dogs are alive."
+"Dogs are animals, which are living organims and since living organisms have the property of being alive, dogs are alive."
 
 When expressing is_a relations involving general categories 
 (not a specific named entity), prefer plural/generic phrasing 

@@ -30,55 +30,55 @@ class Node:
 
     # --- Setters ---
 
-    def setName(self, name: str) -> None:
+    def set_name(self, name: str) -> None:
         self.name = name
 
-    def setKnown(self, known: bool) -> None:
+    def set_known(self, known: bool) -> None:
         self.known = known
 
-    def setFlagged(self, flagged: bool) -> None:
+    def set_flagged(self, flagged: bool) -> None:
         self.flagged = flagged
 
-    def setConfidence(self, confidence: float) -> None:
+    def set_confidence(self, confidence: float) -> None:
         """Set confidence, clamped to [0.0, 1.0]."""
         self.confidence = round(min(1.0, max(0.0, confidence)), 4)
 
-    def setActivation(self, activation: float) -> None:
+    def set_activation(self, activation: float) -> None:
         """Set activation, clamped to [0.0, 1.0]."""
         self.activation = round(min(1.0, max(0.0, activation)), 4)
 
-    def setThreshold(self, threshold: float) -> None:
+    def set_threshold(self, threshold: float) -> None:
         """Set firing threshold, clamped to [0.0, 1.0]."""
         self.threshold = round(min(1.0, max(0.0, threshold)), 4)
 
     # --- Getters ---
 
-    def getName(self) -> str:
+    def get_name(self) -> str:
         return self.name
 
-    def getKnown(self) -> bool:
+    def get_known(self) -> bool:
         return self.known
 
-    def getFlagged(self) -> bool:
+    def get_flagged(self) -> bool:
         return self.flagged
 
-    def getConfidence(self) -> float:
+    def get_confidence(self) -> float:
         return self.confidence
 
-    def getRelations(self) -> list[Relation]:
+    def get_relations(self) -> list[Relation]:
         return self.relations
 
-    def getActivation(self) -> float:
+    def get_activation(self) -> float:
         return self.activation
 
-    def getThreshold(self) -> float:
+    def get_threshold(self) -> float:
         return self.threshold
 
-    def addRelation(self, rel: Relation) -> None:
+    def add_relation(self, rel: Relation) -> None:
         """Append a relation to this node's list."""
         self.relations.append(rel)
 
-    def renderRelations(self) -> str:
+    def render_relations(self) -> str:
         """Return all relations as a markdown table rows string."""
         return "\n".join(str(rel) for rel in self.relations) + "\n" if self.relations else ""
 
@@ -94,6 +94,6 @@ class Node:
             f"|Relation|Target|Weight|Type|Last Activated|Last Decayed|\n"
             f"|---|---|---|---|---|---|\n"
         )
-        return header + self.renderRelations()
+        return header + self.render_relations()
 
 

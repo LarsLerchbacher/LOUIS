@@ -31,51 +31,51 @@ class Relation:
 
     # --- Getters ---
 
-    def getSubj(self) -> str:
+    def get_subj(self) -> str:
         return self.subj
 
-    def getName(self) -> str:
+    def get_name(self) -> str:
         return self.name
 
-    def getObj(self) -> str:
+    def get_obj(self) -> str:
         return self.obj
 
-    def getWeight(self) -> float:
+    def get_weight(self) -> float:
         return self.weight
 
-    def getRelType(self) -> str:
+    def get_rel_type(self) -> str:
         return self.rel_type
 
-    def getLastFired(self) -> str:
+    def get_last_fired(self) -> str:
         """Return last_fired as ISO string."""
         return self.last_fired.isoformat() if isinstance(self.last_fired, datetime) else self.last_fired
 
-    def getLastDecayed(self) -> str:
+    def get_last_decayed(self) -> str:
         """Return last_decayed as ISO string."""
         return self.last_decayed.isoformat() if isinstance(self.last_decayed, datetime) else self.last_decayed
 
     # --- Setters ---
 
-    def setSubj(self, subj: str) -> None:
+    def set_subj(self, subj: str) -> None:
         self.subj = subj
 
-    def setName(self, name: str) -> None:
+    def set_name(self, name: str) -> None:
         self.name = name
 
-    def setObj(self, obj: str) -> None:
+    def set_obj(self, obj: str) -> None:
         self.obj = obj
 
-    def setWeight(self, weight: float) -> None:
+    def set_weight(self, weight: float) -> None:
         """Set weight, clamped to [0.0, 1.0]."""
         self.weight = round(min(1.0, max(0.0, weight)), 4)
 
-    def setRelType(self, rel_type: str) -> None:
+    def set_rel_type(self, rel_type: str) -> None:
         self.rel_type = rel_type
 
-    def setLastFired(self, last_fired: datetime) -> None:
+    def set_last_fired(self, last_fired: datetime) -> None:
         self.last_fired = last_fired
 
-    def setLastDecayed(self, last_decayed: datetime) -> None:
+    def set_last_decayed(self, last_decayed: datetime) -> None:
         self.last_decayed = last_decayed
 
     def __str__(self) -> str:

@@ -21,15 +21,15 @@ class Model:
         self.name = name
         self.production = production
         self.nodes = {}
-        self.firedNodes = []
+        self.fired_nodes = []
         self.stack = set()
 
         self.setup_logging()
         self.setup_db()
 
         self.discover()
-        self.decayRelations()
-        self.reduceActivation()
+        self.decay_relations()
+        self.reduce_activation()
 
     def setup_logging(self):
         """Initialize logging to timestamped files under logs/."""
@@ -175,14 +175,14 @@ class Model:
     
     def get_parent_node(self, node: Node) -> Node | None:
         """Walk direct is_a relations to find the parent (superclass) node."""
-        name = node.getName()
+        name = node.get_name()
         results = self.cursor.execute(
             "SELECT subj, obj FROM relations WHERE type == 'is_a' AND (subj == ? OR obj == ?);",
             (name, name)
         ).fetchall()
         for subj, obj in results:
             parent_name = obj if subj == name else subj
-            return self.getNode(parent_name)
+            return self.get_node(parent_name)
         return None
 
     def get_inherited_relations(self, node: Node) -> list[Relation]:
@@ -191,31 +191,31 @@ class Model:
         Inherited relations are virtual — they are not stored or strengthened.
         Relations of type 'is_a' are never inherited.
         """
-        inherited = []
+        inherited_relations = []
         hop = 1
         current = node
-        visited = {node.getName()}
+        visited = {node.get_name()}
 
         while current:
             parent = self.get_parent_node(current)
-            if parent is None or parent.getName() in visited:
+            if parent is None or parent.get_name() in visited:
                 break
-            visited.add(parent.getName())
+            visited.add(parent.get_name())
             discount = 0.8 ** hop
-            parent_rels = self.getDirectRelations(parent)
+            parent_rels = self.get_direct_relations(parent)
             for rel in parent_rels:
-                if rel.getRelType() == "is_a":
+                if rel.get_rel_type() == "is_a":
                     continue
                 inherited_rel = Relation(
-                    rel.getSubj(), rel.getName(), rel.getObj(),
-                    round(rel.getWeight() * discount, 4),
-                    rel.getRelType(), rel.getLastFired()
+                    rel.get_subj(), rel.get_name(), rel.get_obj(),
+                    round(rel.get_weight() * discount, 4),
+                    rel.get_rel_type(), rel.get_last_fired()
                 )
-                inherited.append(inherited_rel)
+                inherited_relations.append(inherited_rel)
             current = parent
             hop += 1
 
-        return inherited
+        return inherited_relations
 
     def discover(self):
         """Scan the knowledge directory and load all markdown files as nodes.
@@ -235,84 +235,84 @@ class Model:
                 try:
                     data = self.parse_markdown(content)
                     node = Node.fromJSON(data)
-                    self.nodes[node.getName()] = node
-                    for rel in node.getRelations():
+                    self.nodes[node.get_name()] = node
+                    for rel in node.get_relations():
                         self.cursor.execute(
                             "INSERT INTO relations (subj, name, obj, weight, type, last_fired, last_decayed) VALUES (?, ?, ?, ?, ?, ?, ?);",
-                            (rel.getSubj(), rel.getName(), rel.getObj(), rel.getWeight(),
-                             rel.getRelType(), rel.getLastFired(), rel.getLastDecayed())
+                            (rel.get_subj(), rel.get_name(), rel.get_obj(), rel.get_weight(),
+                             rel.get_rel_type(), rel.get_last_fired(), rel.get_last_decayed())
                         )
                     self.cursor.execute(
                         "INSERT INTO nodes (name, known, flagged, confidence, activation, threshold) VALUES (?, ?, ?, ?, ?, ?);",
-                        (node.getName(), node.getKnown(), node.getFlagged(),
-                         node.getConfidence(), node.getActivation(), node.getThreshold())
+                        (node.get_name(), node.get_known(), node.get_flagged(),
+                         node.get_confidence(), node.get_activation(), node.get_threshold())
                     )
-                    self.log(f"Loaded node: {node.getName()}")
+                    self.log(f"Loaded node: {node.get_name()}")
                 except RuntimeError as e:
                     self.err(f"Failed to parse {filename}: {e}")
             except Exception as e:
                 self.err(f"Failed to read {filename}: {e}")
     
 
-    def getNode(self, name: str) -> Node:
+    def get_node(self, name: str) -> Node:
         """Retrieve a node by name, creating it if it doesn't exist."""
         if name in self.nodes:
             return self.nodes[name]
         self.warn(f"Node '{name}' not found, creating new node.")
-        return self.addNode(name)
+        return self.add_node(name)
 
-    def addNode(self, name: str) -> Node:
+    def add_node(self, name: str) -> Node:
         """Create a new node with default properties and persist it."""
         node = Node(name)
         self.nodes[name] = node
-        self.saveNode(name)
+        self.save_node(name)
         return node
 
-    def decayRelations(self) -> None:
+    def decay_relations(self) -> None:
         """Apply exponential decay to all relation weights based on time since last decayed."""
         for name in self.nodes:
-            node = self.getNode(name)
-            for rel in self.getRelations(node):
-                last_dec = rel.getLastDecayed()
+            node = self.get_node(name)
+            for rel in self.get_relations(node):
+                last_dec = rel.get_last_decayed()
                 delta = datetime.now() - datetime.fromisoformat(last_dec)
                 modifier = 0.999 ** delta.days
-                rel.setWeight(rel.getWeight() * modifier)
-                rel.setLastDecayed(datetime.now())
-                self.saveRelation(rel)
+                rel.set_weight(rel.get_weight() * modifier)
+                rel.set_last_decayed(datetime.now())
+                self.save_relation(rel)
 
-    def reduceActivation(self) -> None:
+    def reduce_activation(self) -> None:
         """Dampen all node activations to 20% of their current value."""
         for name in self.nodes:
-            node = self.getNode(name)
-            node.setActivation(node.getActivation() * 0.2)
-            self.saveNode(node.getName())
+            node = self.get_node(name)
+            node.set_activation(node.get_activation() * 0.2)
+            self.save_node(node.get_name())
 
     
-    def saveRelation(self, rel: Relation) -> None:
+    def save_relation(self, rel: Relation) -> None:
         """Persist a relation's weight and last_fired to DB, sync to Node's in-memory list, then write markdown."""
         try:
             self.cursor.execute(
                 "UPDATE relations SET weight = ?, last_fired = ?, last_decayed = ? WHERE subj == ? AND name == ? AND obj == ?;",
-                (rel.getWeight(), rel.getLastFired(), rel.getLastDecayed(), rel.getSubj(), rel.getName(), rel.getObj())
+                (rel.get_weight(), rel.get_last_fired(), rel.get_last_decayed(), rel.get_subj(), rel.get_name(), rel.get_obj())
             )
             # Sync the relation back into the source Node's in-memory list
-            for node_name in (rel.getSubj(), rel.getObj()):
+            for node_name in (rel.get_subj(), rel.get_obj()):
                 if node_name in self.nodes:
                     node = self.nodes[node_name]
-                    for existing in node.getRelations():
-                        if (existing.getSubj() == rel.getSubj()
-                                and existing.getName() == rel.getName()
-                                and existing.getObj() == rel.getObj()):
-                            existing.setWeight(rel.getWeight())
-                            existing.setLastFired(rel.getLastFired())
-                            existing.setLastDecayed(rel.getLastDecayed())
+                    for existing in node.get_relations():
+                        if (existing.get_subj() == rel.get_subj()
+                                and existing.get_name() == rel.get_name()
+                                and existing.get_obj() == rel.get_obj()):
+                            existing.set_weight(rel.get_weight())
+                            existing.set_last_fired(rel.get_last_fired())
+                            existing.set_last_decayed(rel.get_last_decayed())
                             break
-            self.saveNode(rel.getSubj())
-            self.saveNode(rel.getObj())
+            self.save_node(rel.get_subj())
+            self.save_node(rel.get_obj())
         except Exception as e:
-            self.err(f"Failed to save relation {rel.getName()} ({rel.getSubj()} -> {rel.getObj()}): {e}")
+            self.err(f"Failed to save relation {rel.get_name()} ({rel.get_subj()} -> {rel.get_obj()}): {e}")
 
-    def saveNode(self, name: str) -> None:
+    def save_node(self, name: str) -> None:
         """Write a node's state to its markdown file and update the database."""
         try:
             node = self.nodes[name]
@@ -321,13 +321,13 @@ class Model:
 
             self.cursor.execute(
                 "UPDATE nodes SET known = ?, flagged = ?, confidence = ?, activation = ?, threshold = ? WHERE name == ?;",
-                (node.getKnown(), node.getFlagged(), node.getConfidence(),
-                 node.getActivation(), node.getThreshold(), node.getName())
+                (node.get_known(), node.get_flagged(), node.get_confidence(),
+                 node.get_activation(), node.get_threshold(), node.get_name())
             )
         except Exception as e:
             self.err(f"Unexpected error while writing node '{name}': {e}")
 
-    def getRelation(self, relation_id: int) -> Relation:
+    def get_relation_by_id(self, relation_id: int) -> Relation:
         """Retrieve a relation by its database ID."""
         raw = self.cursor.execute("SELECT * FROM relations WHERE id == ?;", (relation_id,)).fetchone()
         if raw is None:
@@ -339,21 +339,21 @@ class Model:
         }
         return Relation.fromJSON(data)
 
-    def getDirectRelations(self, node: Node) -> list[Relation]:
+    def get_direct_relations(self, node: Node) -> list[Relation]:
         """Return only direct (non-inherited) relations for a node from the database."""
-        name = node.getName()
+        name = node.get_name()
         results = self.cursor.execute(
             "SELECT id FROM relations WHERE subj == ? OR obj == ?;", (name, name)
         ).fetchall()
-        return [self.getRelation(row[0]) for row in results]
+        return [self.get_relation_by_id(row[0]) for row in results]
 
-    def getRelations(self, node: Node) -> list[Relation]:
+    def get_relations(self, node: Node) -> list[Relation]:
         """Return all relations for a node — direct and inherited."""
-        rels = self.getDirectRelations(node)
+        rels = self.get_direct_relations(node)
         rels.extend(self.get_inherited_relations(node))
         return rels
 
-    def addRelation(self, subj: str, action: str, obj: str, rel_type: str = "ACTIVATES") -> None:
+    def add_relation(self, subj: str, action: str, obj: str, rel_type: str = "ACTIVATES") -> None:
         """Create a new relation between two nodes and persist it."""
         now = datetime.now().isoformat()
         rel = Relation(subj, action, obj, 0.5, rel_type, now, now)
@@ -361,11 +361,11 @@ class Model:
             "INSERT INTO relations (subj, name, obj, weight, type, last_fired, last_decayed) VALUES (?, ?, ?, ?, ?, ?, ?);",
             (subj, action, obj, 0.5, rel_type, now, now)
         )
-        self.getNode(subj).addRelation(rel)
-        self.saveRelation(rel)
+        self.get_node(subj).add_relation(rel)
+        self.save_relation(rel)
         
 
-    def addActivation(self, name: str, act: float, erase: bool = True):
+    def add_activation(self, name: str, activation_amount: float, erase: bool = True):
         """Spread activation energy through the network via relations.
 
         Starts from a named node, walks activating/inhibiting connections,
@@ -374,14 +374,13 @@ class Model:
 
         Args:
             name: Starting node name.
-            act: Activation amount to add.
+            activation_amount: Activation amount to add.
             erase: Whether to clear existing stack and reset activations first.
         """
         if erase:
             self.stack = set()
-            self.reduceActivation()
 
-        self.stack.add((name, act))
+        self.stack.add((name, activation_amount))
         processed_nodes = set()
 
         while self.stack:
@@ -391,71 +390,71 @@ class Model:
                 continue
             processed_nodes.add(current_name)
 
-            node = self.getNode(current_name)
-            node.setActivation(node.getActivation() + current_act)
+            node = self.get_node(current_name)
+            node.set_activation(node.get_activation() + current_act)
 
-            if node.getActivation() >= node.getThreshold():
+            if node.get_activation() >= node.get_threshold():
                 self.direct_keys = {
-                    (rel.getSubj(), rel.getName(), rel.getObj())
-                    for rel in self.getDirectRelations(node)
+                    (rel.get_subj(), rel.get_name(), rel.get_obj())
+                    for rel in self.get_direct_relations(node)
                 }
 
-                self.seen_rels = set()
-                for rel in self.getRelations(node):
-                    self._strengthen_rel(node, rel)
+                self.seen_relations = set()
+                for rel in self.get_relations(node):
+                    self.strengthen_relation(node, rel)
 
-                node.setActivation(node.getActivation() * 0.8)
-                self.saveNode(current_name)
+                node.set_activation(node.get_activation() * 0.8)
+                self.save_node(current_name)
 
-    def _strengthen_rel(self, node: Node, rel: Relation) -> None:
+    def strengthen_relation(self, node: Node, rel: Relation) -> None:
         """Propagate activation through a relation and optionally strengthen/weaken it.
 
         Inherited relations propagate activation but are never strengthened.
         """
-        rel_key = (rel.getSubj(), rel.getName(), rel.getObj())
-        if rel_key in self.seen_rels:
+        rel_key = (rel.get_subj(), rel.get_name(), rel.get_obj())
+        if rel_key in self.seen_relations:
             return
-        self.seen_rels.add(rel_key)
+        self.seen_relations.add(rel_key)
 
         is_inherited = rel_key not in self.direct_keys
 
-        if rel.getSubj() == node.getName():
-            target_name = rel.getObj()
+        if rel.get_subj() == node.get_name():
+            target_name = rel.get_obj()
         else:
-            target_name = rel.getSubj()
+            target_name = rel.get_subj()
 
-        if rel.getRelType() == "ACTIVATES":
-            target_act = round(node.getActivation() * rel.getWeight(), 4)
+        if rel.get_rel_type() == "ACTIVATES":
+            target_act = round(node.get_activation() * rel.get_weight(), 4)
         else:
-            target_act = round(node.getActivation() * rel.getWeight() * -1, 4)
+            target_act = round(node.get_activation() * rel.get_weight() * -1, 4)
 
         self.stack.add((target_name, target_act))
 
         if not is_inherited:
-            target = self.getNode(target_name)
-            target_new_act = target.getActivation() + target_act
+            target = self.get_node(target_name)
+            target_new_act = target.get_activation() + target_act
 
-            if rel.getRelType() == "ACTIVATES":
-                strengthened = target_new_act >= target.getThreshold()
+            if rel.get_rel_type() == "ACTIVATES":
+                strengthened = target_new_act >= target.get_threshold()
             else:
-                strengthened = target_new_act < target.getActivation() * 0.8
+                strengthened = target_new_act < target.get_activation() * 0.8
 
-            rel.setWeight(round(rel.getWeight() * (1.005 if strengthened else 0.995), 4))
-            rel.setLastFired(datetime.now())
-            self.saveRelation(rel)
+            rel.set_weight(round(rel.get_weight() * (1.005 if strengthened else 0.995), 4))
+            rel.set_last_fired(datetime.now())
+            self.save_relation(rel)
 
-    def getOutput(self) -> list[Node]:
+    def get_output(self) -> list[Node]:
         """Return the top 25 most activated nodes (activation > 0.6), sorted descending."""
         rows = self.cursor.execute(
             "SELECT name FROM nodes WHERE activation > 0.6 ORDER BY activation DESC LIMIT 25;"
         ).fetchall()
-        return [self.getNode(row[0]) for row in rows]
+        return [self.get_node(row[0]) for row in rows]
 
-    def feedInput(self, subj: str, rel: str, obj: str, rel_type: str = "ACTIVATES") -> None:
+    def feed_input(self, subj: str, rel: str, obj: str, rel_type: str = "ACTIVATES") -> None:
         """Inject an input triple into the model and activate related nodes."""
         self.stack.add((subj, 1.0))
         self.stack.add((rel, 1.0))
-        self.addActivation(obj, 1.0, False)
+        self.add_activation(obj, 1.0, False)
 
         row = self.cursor.execute(
             "SELECT id FROM relations WHERE subj = ? AND name = ? AND obj = ? AND type = ?;",
@@ -463,14 +462,14 @@ class Model:
         ).fetchone()
 
         if row is None:
-            self.addRelation(subj, rel, obj, rel_type)
+            self.add_relation(subj, rel, obj, rel_type)
             relation_id = self.cursor.lastrowid
         else:
             relation_id = row[0]
 
-        self._strengthen_rel(self.getNode(subj), self.getRelation(relation_id))
+        self.strengthen_relation(self.get_node(subj), self.get_relation_by_id(relation_id))
 
-    def parseJSON(self, data: str) -> int:
+    def parse_json(self, data: str) -> int:
         """Parse input from the InputLLM and feed it into the model.
 
         Returns 0 on success, -1 on failure.
@@ -486,7 +485,7 @@ class Model:
                 if token not in (parsed["subject"], parsed["action"], parsed["object"]):
                     self.stack.add((token, 0.3))
 
-            self.feedInput(parsed["subject"], parsed["action"], parsed["object"], parsed["effect"])
+            self.feed_input(parsed["subject"], parsed["action"], parsed["object"], parsed["effect"])
             return 0
         except KeyError as e:
             self.err(f"Failed to parse JSON data — missing key: {e}")
@@ -500,22 +499,22 @@ if __name__ == "__main__":
     input_llm = InputLLM("lfm2.5", model.name)
     output_llm = OutputLLM("lfm2.5", model.name)
 
-    if model.parseJSON(input_llm.send(message)) == 0:
-        output_nodes = model.getOutput()
+    if model.parse_json(input_llm.send(message)) == 0:
+        output_nodes = model.get_output()
 
-        output_relations = []
+        output_relations = set()
         for node in output_nodes:
-            for rel in model.getRelations(node):
-                subj_node = model.getNode(rel.getSubj())
-                obj_node = model.getNode(rel.getObj())
+            for rel in model.get_relations(node):
+                subj_node = model.get_node(rel.get_subj())
+                obj_node = model.get_node(rel.get_obj())
                 if subj_node in output_nodes and obj_node in output_nodes:
-                    output_relations.append(
-                        f"{rel.getSubj()} --> {rel.getName()} --> {rel.getObj()} ({rel.getRelType()})"
+                    output_relations.add(
+                        f"{rel.get_subj()} --> {rel.get_name()} --> {rel.get_obj()} ({rel.get_rel_type()})"
                     )
 
         context = (
             f"Input: {message}\n"
-            f"Activated concepts: {[n.getName() for n in output_nodes]}\n"
+            f"Activated concepts: {[n.get_name() for n in output_nodes]}\n"
             f"Relations between concepts: {output_relations}"
         )
         model.log(context)
