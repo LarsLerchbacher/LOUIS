@@ -1,9 +1,16 @@
 from LLM import LLM
 
+
 class OutputLLM(LLM):
-        def __init__(self, model: str, name: str):
-                super().__init__(model, name)
-                self.prompt = f"""
+    """Generates natural language from activated nodes and their relations.
+
+    The system prompt instructs the LLM to convert relation triples into
+    fluent sentences, pluralizing generic categories and avoiding invented causality.
+    """
+
+    def __init__(self, model: str, name: str):
+        super().__init__(model, name)
+        self.prompt = f"""
 You are now the mouth of a virtual artificial intelligence named '{self.name}'. 
 Generate natural sentence(s) expressing these facts. Group facts 
 about the same subject together when it reads naturally. Facts that 
