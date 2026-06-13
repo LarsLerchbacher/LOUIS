@@ -329,13 +329,20 @@ class Model():
 
             # Check if the node's activation exceeds its threshold
             if node.getActivation() >= node.getThreshold():
-                # Process all relations for this node
+                # Build set of direct relation keys for this node
+                direct_keys = set()
+                for direct_rel in self.getDirectRelations(node):
+                    direct_keys.add((direct_rel.getSubj(), direct_rel.getName(), direct_rel.getObj()))
+
+                # Process all relations for this node (direct + inherited)
                 seen_rels = set()
                 for rel in self.getRelations(node):
                     rel_key = (rel.getSubj(), rel.getName(), rel.getObj())
                     if rel_key in seen_rels:
                         continue
                     seen_rels.add(rel_key)
+
+                    is_inherited = rel_key not in direct_keys
                     if rel.getRelType() == "ACTIVATES":
                         if rel.getSubj() == node.getName():
                             target_name = rel.getObj()
@@ -349,13 +356,14 @@ class Model():
                             stack.append((target_name, target_act))
                         
                         target = self.getNode(target_name)
-                        target_new_act = target.getActivation() + target_act
-                        if target_new_act >= target.getThreshold():
-                            rel.setWeight(rel.getWeight() * 1.005)
-                        else:
-                            rel.setWeight(rel.getWeight() * 0.995)
-                        rel.setLastFired(datetime.now())
-                        self.saveRelation(rel)
+                        if not is_inherited:
+                            target_new_act = target.getActivation() + target_act
+                            if target_new_act >= target.getThreshold():
+                                rel.setWeight(rel.getWeight() * 1.005)
+                            else:
+                                rel.setWeight(rel.getWeight() * 0.995)
+                            rel.setLastFired(datetime.now())
+                            self.saveRelation(rel)
 
                     else:
                         if rel.getSubj() == node.getName():
@@ -370,14 +378,15 @@ class Model():
                             stack.append((target_name, target_act))
                         
                         target = self.getNode(target_name)
-                        target_new_act = target.getActivation() + target_act
-                        dampened_act = target.getActivation() * 0.8
-                        if target_new_act < dampened_act:
-                            rel.setWeight(rel.getWeight() * 1.005)
-                        else:
-                            rel.setWeight(rel.getWeight() * 0.995)
-                        rel.setLastFired(datetime.now())
-                        self.saveRelation(rel)
+                        if not is_inherited:
+                            target_new_act = target.getActivation() + target_act
+                            dampened_act = target.getActivation() * 0.8
+                            if target_new_act < dampened_act:
+                                rel.setWeight(rel.getWeight() * 1.005)
+                            else:
+                                rel.setWeight(rel.getWeight() * 0.995)
+                            rel.setLastFired(datetime.now())
+                            self.saveRelation(rel)
 
                 # Dampen the node's activation after processing
                 node.setActivation(node.getActivation() * 0.8)
