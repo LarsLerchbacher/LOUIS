@@ -24,14 +24,14 @@ class Model:
         self.firedNodes = []
         self.stack = set()
 
-        self._setup_logging()
-        self._setup_db()
+        self.setup_logging()
+        self.setup_db()
 
         self.discover()
         self.decayRelations()
         self.reduceActivation()
 
-    def _setup_logging(self):
+    def setup_logging(self):
         """Initialize logging to timestamped files under logs/."""
         log_dir = "logs"
         os.makedirs(log_dir, exist_ok=True)
@@ -51,7 +51,7 @@ class Model:
 
         self.logger = logging.getLogger(__name__)
 
-    def _setup_db(self):
+    def setup_db(self):
         """Initialize the temporary SQLite database for relation persistence.
 
         Recreates the database file on each run to ensure a clean slate.
@@ -515,8 +515,8 @@ if __name__ == "__main__":
 
         context = (
             f"Input: {message}\n"
-            f"Output: {[n.getName() for n in output_nodes]}\n"
-            f"Relations between output nodes: {output_relations}"
+            f"Activated concepts: {[n.getName() for n in output_nodes]}\n"
+            f"Relations between concepts: {output_relations}"
         )
         model.log(context)
         response = output_llm.send(context)

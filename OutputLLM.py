@@ -25,10 +25,10 @@ TYPES and must be converted to natural grammar:
 
 Input:
 Relations:
-socrates -[is_a]-> human
-human -[is_a]-> mortal
-mortal -[causes]-> death
-Example Output: "Socrates is a human, and since all humans are mortal, he will eventually face death."
+dog -[is_a]-> animal 
+animal -[is_a]-> living organism 
+living organism -[has_property]-> alive 
+Example Output: "Dogs are animals, which are living organims and since living organisms have the property of being alive, dogs are alive."
 
 When expressing is_a relations involving general categories 
 (not a specific named entity), prefer plural/generic phrasing 
