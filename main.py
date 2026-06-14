@@ -2,6 +2,7 @@ from datetime import datetime
 import json
 from InputLLM import InputLLM
 import os
+from LearningLLM import LearningLLM
 import logging
 from OutputLLM import OutputLLM
 import sqlite3
@@ -38,15 +39,16 @@ class Model:
 
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         log_filename = f"{log_dir}/{timestamp}.log"
+        
+        handlers = [ logging.FileHandler(log_filename) ]
+        if self.production == False:
+            handlers.append(logging.StreamHandler())
 
         logging.basicConfig(
             level=logging.DEBUG,
             format='[%(asctime)s] [%(levelname)s] %(message)s',
             datefmt='%Y-%m-%d %H:%M:%S',
-            handlers=[
-                logging.FileHandler(log_filename),
-                logging.StreamHandler()
-            ]
+            handlers=handlers
         )
 
         self.logger = logging.getLogger(__name__)
@@ -123,9 +125,9 @@ class Model:
             if line.startswith("# "):
                 result["name"] = line.removeprefix("# ").strip()
             elif "Known: " in line:
-                result["known"] = bool(line.removeprefix("Known: "))
+                result["known"] = line.removeprefix("Known: ") == "True"
             elif "Flagged: " in line:
-                result["flagged"] = bool(line.removeprefix("Flagged: "))
+                result["flagged"] = line.removeprefix("Flagged: ") == "True"
             elif "Confidence: " in line:
                 result["confidence"] = float(line.removeprefix("Confidence: "))
             elif "Activation: " in line:
@@ -452,6 +454,11 @@ class Model:
 
     def feed_input(self, subj: str, rel: str, obj: str, rel_type: str = "ACTIVATES") -> None:
         """Inject an input triple into the model and activate related nodes."""
+        subj = subj.lower().strip()
+        rel = rel.lower().strip()
+        obj = obj.lower().strip()
+        rel_type = rel_type.upper().strip()
+
         self.stack.add((subj, 1.0))
         self.stack.add((rel, 1.0))
         self.add_activation(obj, 1.0, False)
@@ -475,29 +482,37 @@ class Model:
         Returns 0 on success, -1 on failure.
         """
         self.log(data)
-        parsed = json.loads(data)
-
+        
         try:
-            for mod in parsed.get("modifiers", []):
-                if mod not in (parsed["subject"], parsed["action"], parsed["object"]):
-                    self.stack.add((mod, 0.5))
-            for token in parsed.get("tokens", []):
-                if token not in (parsed["subject"], parsed["action"], parsed["object"]):
-                    self.stack.add((token, 0.3))
+            if len(data.split("}")) > 1:
+                parsed = json.loads(data)
+            else:
+                parsed = [json.loads(s + "}") for s in data.split("}")]
+            self.warn(parsed)
+            for entry in parsed:
+                for mod in entry.get("modifiers", []):
+                    if mod not in (entry["subject"], entry["action"], entry["object"]):
+                        self.stack.add((mod.lower(), 0.5))
+                for token in entry.get("tokens", []):
+                    if token not in (entry["subject"], entry["action"], entry["object"]):
+                        self.stack.add((token.lower(), 0.3))
 
-            self.feed_input(parsed["subject"], parsed["action"], parsed["object"], parsed["effect"])
-            return 0
-        except KeyError as e:
-            self.err(f"Failed to parse JSON data — missing key: {e}")
+                self.feed_input(entry["subject"].lower(), entry["action"].lower(), entry["object"].lower(), entry["effect"].upper())
+
+        except Exception as e:
+            self.err(f"Failed to parse JSON - {e}")
             return -1
+        
+        return 0
 
 
 if __name__ == "__main__":
-    message = "Socratese is a Human."
+    message = "Socrates is a Human. He is a philosopher."
 
     model = Model("base", False)
     input_llm = InputLLM("lfm2.5", model.name)
     output_llm = OutputLLM("lfm2.5", model.name)
+    learn_llm = LearningLLM("lfm2.5", model.name)
 
     if model.parse_json(input_llm.send(message)) == 0:
         output_nodes = model.get_output()
@@ -507,16 +522,19 @@ if __name__ == "__main__":
             for rel in model.get_relations(node):
                 subj_node = model.get_node(rel.get_subj())
                 obj_node = model.get_node(rel.get_obj())
-                if subj_node in output_nodes and obj_node in output_nodes:
-                    output_relations.add(
-                        f"{rel.get_subj()} --> {rel.get_name()} --> {rel.get_obj()} ({rel.get_rel_type()})"
-                    )
+                
+                rel_text = f"{rel.get_subj()} --> {rel.get_name()} --> {rel.get_obj()} ({rel.get_rel_type()})" 
+                if subj_node in output_nodes and obj_node in output_nodes and rel_text not in output_relations:
+                    output_relations.add(rel_text)
 
         context = (
             f"Input: {message}\n"
             f"Activated concepts: {[n.get_name() for n in output_nodes]}\n"
+            f"Unknown conecpts: {[n for n in model.nodes if model.get_node(n).get_flagged()]}"
             f"Relations between concepts: {output_relations}"
         )
         model.log(context)
         response = output_llm.send(context)
+        model.parse_json(learn_llm.send(response))
         print(response)
+

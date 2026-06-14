@@ -16,6 +16,7 @@ Generate natural sentence(s) expressing these facts. Group facts
 about the same subject together when it reads naturally. Facts that 
 don't logically connect to others should get their own sentence — 
 do not invent causal links between unrelated facts.
+You will also receive a list of unknown concepts. Ask for an explanation for them in an additional sentence.
 
 Relation labels (is_a, causes, has_property) describe relationship 
 TYPES and must be converted to natural grammar:
