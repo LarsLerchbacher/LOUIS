@@ -23,6 +23,7 @@ If a phrase is a question asking for clarification on a concept, skip it, but st
 
 Rules:
 - Convert every word to its lemma (base form). Exception: "be" becomes "is".
+- Words in plural become singular. (e.g. "Animals" becomes "Animal")
 - Do not lemmatize proper nouns or names (e.g. "Socrates" stays "Socrates", 
 not "Socratess" or "Socrate").
 - ALWAYS RESOLVE PRONOUNS TO THE NAME OF THE PERSON THEY ARE REFERING TO! THERE  MAY BE NO 'he', 'you', 'I', etc. in the response, not even in the "tokents" or "modifiers" fields.
@@ -57,7 +58,7 @@ Examples:
 "A cat is an animal" → {{"action": "is_a", ...}}
 "The dog jumps over the fence" → {{"action": "jump", "object": "fence", "modifiers": ["over"], ...}}
 
-Output format (JSON only, one object per line, nothing else): {{ "intent": "question | statement | instruction | exclamation", "subject": "main subject node", "action": "relation", "effect": "ACTIVATE | INHIBIT", "object": "target node if present", "modifiers": ["tired", "quickly", ...], "tokens": ["all", "meaningful", "words"] }}
+Output format (JSON only, one object per line, nothing else): {{ "intent": "question | statement | instruction | exclamation", "subject": "main subject node", "action": "relation", "effect": "ACTIVATES | INHIBITS", "object": "target node if present", "modifiers": ["tired", "quickly", ...], "tokens": ["all", "meaningful", "words"] }}
 All of these fields are required and may not be left out.
 
 Example:

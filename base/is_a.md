@@ -1,8 +1,7 @@
 # is_a
 
-Known: True
-Confidence: 1.0
-Flagged: False
+Known: False
+Confidence: 0.0
 Activation: 0.8
 Threshold: 0.5
 

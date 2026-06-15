@@ -1,9 +1,8 @@
 # death
 
 Known: True
-Confidence: 1.0
-Flagged: False
-Activation: 0.0
+Confidence: 0.2
+Activation: 0.0064
 Threshold: 0.5
 
 ## Relations

@@ -8,12 +8,11 @@ class Node:
     relations connecting it to other nodes. Comparable to a neuron.
     """
 
-    def __init__(self, name: str, known: bool = False, flagged: bool = True,
+    def __init__(self, name: str, known: bool = False,
                  confidence: float = 0.0, activation: float = 0.0,
                  threshold: float = 0.5, relations: list = None):
         self.name = name
         self.known = known
-        self.flagged = flagged
         self.confidence = confidence
         self.activation = activation
         self.relations = relations if relations is not None else []
@@ -23,7 +22,7 @@ class Node:
     def fromJSON(json_dict: dict) -> 'Node':
         """Create a Node from a parsed dictionary (e.g. from markdown parsing)."""
         return Node(
-            json_dict["name"], json_dict["known"], json_dict["flagged"],
+            json_dict["name"], json_dict["known"],
             json_dict["confidence"], json_dict["activation"],
             json_dict["threshold"], json_dict["relations"]
         )
@@ -36,9 +35,6 @@ class Node:
     def set_known(self, known: bool) -> None:
         self.known = known
 
-    def set_flagged(self, flagged: bool) -> None:
-        self.flagged = flagged
-
     def set_confidence(self, confidence: float) -> None:
         """Set confidence, clamped to [0.0, 1.0]."""
         self.confidence = round(min(1.0, max(0.0, confidence)), 4)
@@ -49,7 +45,7 @@ class Node:
 
     def set_threshold(self, threshold: float) -> None:
         """Set firing threshold, clamped to [0.0, 1.0]."""
-        self.threshold = round(min(1.0, max(0.0, threshold)), 4)
+        self.threshold = round(min(1.0, max(0.1, threshold)), 4)
 
     # --- Getters ---
 
@@ -58,9 +54,6 @@ class Node:
 
     def get_known(self) -> bool:
         return self.known
-
-    def get_flagged(self) -> bool:
-        return self.flagged
 
     def get_confidence(self) -> float:
         return self.confidence
@@ -87,7 +80,6 @@ class Node:
             f"# {self.name}\n\n"
             f"Known: {self.known}\n"
             f"Confidence: {self.confidence}\n"
-            f"Flagged: {self.flagged}\n"
             f"Activation: {self.activation}\n"
             f"Threshold: {self.threshold}\n\n"
             f"## Relations\n"

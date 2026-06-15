@@ -67,7 +67,7 @@ class Relation:
 
     def set_weight(self, weight: float) -> None:
         """Set weight, clamped to [0.0, 1.0]."""
-        self.weight = round(min(1.0, max(0.0, weight)), 4)
+        self.weight = round(min(1.0, max(0.1, weight)), 4)
 
     def set_rel_type(self, rel_type: str) -> None:
         self.rel_type = rel_type
