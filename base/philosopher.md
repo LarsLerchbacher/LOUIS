@@ -8,4 +8,4 @@ Threshold: 0.5
 ## Relations
 |Relation|Target|Weight|Type|Last Activated|Last Decayed|
 |---|---|---|---|---|---|
-|practices|[[philosophy]]|0.5579|ACTIVATE|2026-06-15T06:49:04.251481|2026-06-15T06:46:16.694308|
+|practices|[[philosophy]]|0.6511|ACTIVATE|2026-06-15T16:00:57.099164|2026-06-15T15:57:17.050164|

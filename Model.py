@@ -281,7 +281,7 @@ class Model:
         """Dampen all node activations to 20% of their current value."""
         for name in self.nodes:
             node = self.get_node(name)
-            node.set_activation(node.get_activation() * 0.2)
+            node.set_activation(node.get_activation() * 0.6)
             self.save_node(node.get_name())
 
     
@@ -449,6 +449,8 @@ class Model:
 
     def feed_input(self, subj: str, rel: str, obj: str, rel_type: str = "ACTIVATES") -> None:
         """Inject an input triple into the model and activate related nodes."""
+        self.reduce_activation()
+
         subj = subj.lower().strip()
         rel = rel.lower().strip()
         obj = obj.lower().strip()
@@ -500,9 +502,9 @@ class Model:
                     case "statement":
                         self.feed_input(entry["subject"].lower(), entry["action"].lower(), entry["object"].lower(), entry["effect"].upper())
                     case "question":
-                        self.add_activation(entry["subject"])
+                        self.add_activation(entry["subject"], 1.0)
                     case "exclamation":
-                        self.add_activation(entry["subject"])
+                        self.add_activation(entry["subject"], 1.0)
 
 
         except Exception as e:
@@ -513,10 +515,15 @@ class Model:
 
     def update_known(self) -> None:
         for node_name in self.nodes:
-            node = self.get_node(node_name)
-            if len(self.get_relations(node)) > 0:
-                node.set_known(True)
+            if not node_name in ["is_a", "causes", "has", "has_property", "is_for", "inhibits"]:
+                node = self.get_node(node_name)
+                if len(self.get_relations(node)) > 0:
+                    node.set_known(True)
+                else:
+                    node.set_known(False)
+                node.set_confidence(min(len(self.get_relations(node)) / 5, 5.0))
             else:
-                node.set_known(False)
-            node.set_confidence(min(len(self.get_relations(node)) / 5, 5.0))
+                node.set_known(True)
+                node.set_confidence(1.0)
+
             self.save_node(node_name)

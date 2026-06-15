@@ -8,5 +8,5 @@ Threshold: 0.5
 ## Relations
 |Relation|Target|Weight|Type|Last Activated|Last Decayed|
 |---|---|---|---|---|---|
-|is_a|[[test]]|0.495|ACTIVATES|2026-06-13T18:55:13.676649|2026-06-15T06:46:16.823805|
-|is_for|[[theory]]|1.0|ACTIVATES|2026-06-13T19:01:59.834197|2026-06-15T06:46:16.644236|
+|is_a|[[test]]|0.495|ACTIVATE|2026-06-13T18:55:13.676649|2026-06-15T15:57:17.162934|
+|is_for|[[theory]]|1.0|ACTIVATE|2026-06-13T19:01:59.834197|2026-06-15T15:57:16.999348|

@@ -1,11 +1,11 @@
-# socratese
+# base
 
 Known: True
 Confidence: 0.2
-Activation: 0.8
+Activation: 0.0069
 Threshold: 0.5
 
 ## Relations
 |Relation|Target|Weight|Type|Last Activated|Last Decayed|
 |---|---|---|---|---|---|
-|is_a|[[human]]|0.5255|ACTIVATES|2026-06-15T06:49:04.365978|2026-06-15T06:46:37.836368|
+|is_a|[[ai]]|0.5|ACTIVATE|2026-06-15T10:35:09.393908|2026-06-15T15:57:17.230524|

@@ -1,4 +1,5 @@
 from LLM import LLM
+from ollama import chat, ChatResponse
 
 
 class LearningLLM(LLM):
@@ -11,66 +12,104 @@ class LearningLLM(LLM):
     def __init__(self, model: str, name: str):
         super().__init__(model, name)
         self.prompt = f"""
-You are the input parser for a virtual AI named '{self.name}'. 
-You will receive the raw thoughts of the AI. Extract ONLY the relations 
-explicitly stated in the text. Do NOT add, infer, or guess any relation, 
-concept, or fact that is not directly present in the input.
+You are the input parser for a virtual AI named '{self.name}'.
+You will receive raw text spoken to the AI. Your job is to extract structured meaning from ANY input, including statements, questions, exclamations, and single words.
+The only exception are questions, asking for clarifiaction on a concept. These should be skipped.
 
-Each object must have exactly ONE subject and ONE object. 
-If a sentence contains multiple objects for the same subject 
-and relation, return separate triples.
-If a phrase is a question asking for clarification on a concept, skip it, but still process the rest of the phrases.
+INTENT RULES:
+- "statement": declares a fact ("Socrates is a man")
+- "question": asks about a fact ("Is Socrates a man?")
+- "exclamation": expresses emotion or mentions something ("Socrates!!!")
+- "instruction": commands the AI to do something ("Tell me about Socrates")
 
-Rules:
+For statements and instructions, extract full relations.
+For questions and exclamations, extract only what is mentioned — leave "action", "effect", and "object" as empty strings "".
+
+EXTRACTION RULES:
+- Extract ONLY what is explicitly stated. Do NOT infer or guess.
+- Each object must have exactly ONE subject and ONE object.
+- If a sentence contains multiple relations, return one JSON object per relation.
 - Convert every word to its lemma (base form). Exception: "be" becomes "is".
-- Words in plural become singular. (e.g. "Animals" becomes "Animal")
-- Do not lemmatize proper nouns or names (e.g. "Socrates" stays "Socrates", 
-not "Socratess" or "Socrate").
-- ALWAYS RESOLVE PRONOUNS TO THE NAME OF THE PERSON THEY ARE REFERING TO! THERE  MAY BE NO 'he', 'you', 'I', etc. in the response, not even in the "tokents" or "modifiers" fields.
-- Use lowercase for all values including concepts
+- Words in plural become singular ("animals" → "animal").
+- Do not lemmatize proper nouns ("Socrates" stays "Socrates").
+- ALWAYS resolve pronouns to the name they refer to. There may be NO "he", "she", "it", "you", "I", etc. anywhere in the response.
+- Use lowercase for all values including concepts.
 - Exclude articles (a, an, the) from tokens.
-- Use exact terms from the input. Do not substitute synonyms.
+- Do not substitute synonyms. Use the exact term from the input.
 - Concepts go in "subject" or "object", never in "action".
-- "action" must use underscores and be the simplest possible relation 
-  (e.g. is_a, is_for, has_property, causes, requires).
-- If the input contains multiple relations, return one JSON object 
-  per relation, each on its own line. Do not merge or invent extra ones.
-  Wrap all json objects in a list []. Always wrap the objects, even if there is only one.
+- "action" must use underscores and be the simplest possible relation (e.g. is_a, is_for, has_property, causes, requires).
 - "action" must NEVER be a single literal word copied from the input.
+- Wrap all objects in a list []. Place a comma between objects, not after the last one.
 
-For each relation, also determine its "effect":
+EFFECT RULES:
 - "ACTIVATE" if the subject increases/enables/causes the object
 - "INHIBIT" if the subject decreases/prevents/suppresses the object
+- "" if intent is question or exclamation
 
-Example:
+RELATION TYPE:
+- STATE, CATEGORY, or PROPERTY (is, has, belongs to) → use is_X / has_X (e.g. is_a, has_property)
+- ACTION or EVENT (verb the subject performs) → use bare verb lemma (e.g. jump, eat) — do NOT prefix with "is_"
+
+OUTPUT FORMAT (JSON only, nothing else):
+{{"intent": "statement | question | instruction | exclamation", "subject": "main subject", "action": "relation or empty string", "effect": "ACTIVATE | INHIBIT | empty string", "object": "target or empty string", "modifiers": ["list", "of", "modifiers"], "tokens": ["all", "meaningful", "words"]}}
+
+EXAMPLES:
+
+Input: "Socrates!!!"
+Output:
+[
+  {{"intent": "exclamation", "subject": "Socrates", "action": "", "effect": "", "object": "", "modifiers": [], "tokens": ["Socrates"]}}
+]
+
+Input: "Is Socrates a man?"
+Output:
+[
+  {{"intent": "question", "subject": "Socrates", "action": "", "effect": "", "object": "", "modifiers": [], "tokens": ["Socrates", "man"]}}
+]
+
 Input: "Being tired stops the cat from hunting."
 Output:
-{{"subject": "tired", "action": "stops", "object": "hunt", "effect": "INHIBIT", "modifiers": [], "tokens": ["tired", "hunt"]}}
+[
+  {{"intent": "statement", "subject": "tired", "action": "inhibit", "effect": "INHIBIT", "object": "hunt", "modifiers": [], "tokens": ["tired", "hunt"]}}
+]
 
-Determine the relation type:
-- If the relation describes a STATE, CATEGORY, or PROPERTY 
-  (is, has, belongs to), use is_X / has_X format (e.g. is_a, is_for, has_property)
-- If the relation describes an ACTION or EVENT (a verb the subject 
-  performs), use the bare verb lemma as the action 
-  (e.g. "jump", "chase", "eat") — do NOT prefix with "is_"
+Input: "A cat is an animal."
+Output:
+[
+  {{"intent": "statement", "subject": "cat", "action": "is_a", "effect": "ACTIVATE", "object": "animal", "modifiers": [], "tokens": ["cat", "animal"]}}
+]
 
-Examples:
-"A cat is an animal" → {{"action": "is_a", ...}}
-"The dog jumps over the fence" → {{"action": "jump", "object": "fence", "modifiers": ["over"], ...}}
-
-Output format (JSON only, one object per line, nothing else): {{ "intent": "question | statement | instruction | exclamation", "subject": "main subject node", "action": "relation", "effect": "ACTIVATES | INHIBITS", "object": "target node if present", "modifiers": ["tired", "quickly", ...], "tokens": ["all", "meaningful", "words"] }}
-All of these fields are required and may not be left out.
-
-Example:
 Input: "An experiment is a test for a theory."
 Output:
 [
-  {{"intent": "statement", "subject": "experiment", "action": "is_a", "effect": "ACTIVATES", "object": "test", "modifiers": [], "tokens": ["experiment", "test"]}},
-  {{"intent": "statement", "subject": "cat", "action": "is_in", "effect": "ACTIVATES", "object": "theory", "modifiers": [], "tokens": ["test", "theory"]}}
+  {{"intent": "statement", "subject": "experiment", "action": "is_a", "effect": "ACTIVATE", "object": "test", "modifiers": [], "tokens": ["experiment", "test"]}},
+  {{"intent": "statement", "subject": "test", "action": "is_for", "effect": "ACTIVATE", "object": "theory", "modifiers": [], "tokens": ["test", "theory"]}}
 ]
 
-NEVER output anything other than the JSON lines above. No notes, no explanations, no markdown formatting. NEVER output unresolved pronouns.
+NEVER output anything other than the JSON list above. No notes, no explanations, no markdown.
 """ 
 
     def send(self, message: str) -> str:
-      return super().send("\nInput: " + message)
+        """Send a message to the LLM and return the text response."""
+        response: ChatResponse = chat(
+            model=self.model,
+            messages=[
+                {'role': 'system', 'content': self.prompt},
+                {'role': 'user', 'content': "Input: " + message.lower()},
+            ],
+            options={"temperature": 0.0},
+            format={
+              "type": "object",
+              "properties": {
+                "intent": {"type": "string"},
+                "subject": {"type": "string"},
+                "action": {"type": "string"},
+                "effect": {"type": "string"},
+                "object": {"type": "string"},
+                "modifiers": {"type": "array", "items": {"type": "string"}},
+                "tokens": {"type": "array", "items": {"type": "string"}}
+              },
+              "required": ["intent", "subject", "action", "effect", "object", "modifiers", "tokens"]
+            },
+        )
+        return response.message.content 

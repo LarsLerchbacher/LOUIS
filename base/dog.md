@@ -8,5 +8,5 @@ Threshold: 0.5
 ## Relations
 |Relation|Target|Weight|Type|Last Activated|Last Decayed|
 |---|---|---|---|---|---|
-|has_property|[[fur]]|0.5691|ACTIVATES|2026-06-15T06:36:38.739702|2026-06-15T06:46:16.803493|
-|is_a|[[animal]]|0.5523|ACTIVATES|2026-06-15T06:36:38.689750|2026-06-15T06:46:16.763824|
+|has_property|[[fur]]|0.6195|ACTIVATE|2026-06-15T15:59:31.371654|2026-06-15T15:57:17.142582|
+|is_a|[[animal]]|0.6012|ACTIVATE|2026-06-15T15:59:31.381796|2026-06-15T15:57:17.122112|

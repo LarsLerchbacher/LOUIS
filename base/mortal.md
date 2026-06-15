@@ -8,4 +8,4 @@ Threshold: 0.5
 ## Relations
 |Relation|Target|Weight|Type|Last Activated|Last Decayed|
 |---|---|---|---|---|---|
-|can_experience|[[death]]|1.0|ACTIVATES|2026-06-15T06:39:28.404278|2026-06-15T06:46:16.893607|
+|can_experience|[[death]]|1.0|ACTIVATE|2026-06-15T08:22:40.888388|2026-06-15T15:57:17.240737|

@@ -18,7 +18,7 @@ class LLM:
             model=self.model,
             messages=[
                 {'role': 'system', 'content': self.prompt},
-                {'role': 'user', 'content': message},
+                {'role': 'user', 'content': message.lower()},
             ],
             options={"temperature": 0.0}
         )

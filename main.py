@@ -40,14 +40,14 @@ def turn(message: str) -> str:
                 obj_node = model.get_node(rel.get_obj())
                 
                 rel_text = f"{rel.get_subj()} --> {rel.get_name()} --> {rel.get_obj()} ({rel.get_rel_type()})" 
-                if subj_node in output_nodes and obj_node in output_nodes and rel_text not in output_relations:
+                if rel_text not in output_relations:
                     output_relations.add(rel_text)
 
         context = (
-            f"Input: {message}\n"
             f"Activated concepts: {[n.get_name() for n in output_nodes]}\n"
-            f"Unknown conecpts: {[n for n in model.nodes if not model.get_node(n).get_known()]}"
             f"Relations between concepts: {output_relations}"
+            f"Unknown conecpts: {[n for n in model.nodes if not model.get_node(n).get_known()]}"
+            f"User: {message}\n"
         )
         model.log(context)
         response = output_llm.send(context)
