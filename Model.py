@@ -273,8 +273,7 @@ class Model:
             )
             # Sync the relation back into the source Node's in-memory list
             for node_name in (rel.get_subj(), rel.get_obj()):
-                if node_name in self.nodes:
-                    node = self.nodes[node_name]
+                    node = self.get_node(node_name)
                     for existing in node.get_relations():
                         if (existing.get_subj() == rel.get_subj()
                                 and existing.get_name() == rel.get_name()

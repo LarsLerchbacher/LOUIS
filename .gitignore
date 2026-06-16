@@ -10,6 +10,8 @@ activemq-data/
 #   and can be added to the global gitignore or merged into this file. However, if you prefer, 
 *.aof
 base/.obsidian
+conceptnet-assertions-*.csv
+graph.html
 #   before PyInstaller builds the exe, so as to inject date/other infos into it.
 #   be found at https://github.com/github/gitignore/blob/main/Global/JetBrains.gitignore
 build/

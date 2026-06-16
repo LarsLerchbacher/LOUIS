@@ -17,8 +17,12 @@ ALLOWED_RELATIONS = {
 MIN_WEIGHT = 2.0
 
 with open("conceptnet-assertions-5.7.0.csv", encoding="utf-8") as f:
+    edges_written = 0
     reader = csv.reader(f, delimiter="\t")
-    for row in reader:
+    for i, row in enumerate(reader):
+        if i % 100000 == 0:
+            model.log(f"{i} rows processed, {edges_written} edges written")
+
         relation = row[1]
         start    = row[2]
         end      = row[3]
@@ -41,3 +45,5 @@ with open("conceptnet-assertions-5.7.0.csv", encoding="utf-8") as f:
         end = model.get_node(end_label)
         if len(model.cursor.execute("SELECT id FROM relations WHERE subj = ? AND type = ? AND obj = ?;", (start_label, ALLOWED_RELATIONS[relation], end_label)).fetchall()) == 0:
                 model.add_relation(start_label, ALLOWED_RELATIONS[relation], end_label)
+        
+        edges_written += 1

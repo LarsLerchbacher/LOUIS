@@ -28,7 +28,7 @@ EXTRACTION RULES:
 - Extract ONLY what is explicitly stated. Do NOT infer or guess.
 - Each object must have exactly ONE subject and ONE object.
 - If a sentence contains multiple relations, return one JSON object per relation.
-- Convert every word to its lemma (base form). Exception: "be" becomes "is".
+- Convert every word to its lemma (base form). Exception: "be" becomes "is", "have" becomes "has".
 - Words in plural become singular ("animals" → "animal").
 - Spaces are replaced with underscores ("human philosopher" --> "human_philosopher")
 - Do not lemmatize proper nouns ("Socrates" stays "Socrates").
