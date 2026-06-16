@@ -2,7 +2,7 @@
 
 Known: False
 Confidence: 0.0
-Activation: 0.0005
+Activation: 0.0001
 Threshold: 0.5
 
 ## Relations

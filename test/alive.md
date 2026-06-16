@@ -1,7 +1,7 @@
 # alive
 
 Known: True
-Confidence: 0.4
+Confidence: 1.0
 Activation: 0.0
 Threshold: 0.5
 

@@ -1,7 +1,7 @@
 # dead
 
 Known: True
-Confidence: 0.2
+Confidence: 0.4
 Activation: 0.0
 Threshold: 0.5
 
