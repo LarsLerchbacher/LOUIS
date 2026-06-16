@@ -21,6 +21,8 @@ INTENT RULES:
 - "question": asks about a fact ("Is Socrates a man?")
 - "exclamation": expresses emotion or mentions something ("Socrates!!!")
 - "instruction": commands the AI to do something ("Tell me about Socrates")
+- Do not substitute the stated relation with a simpler or more common one.
+"likes" must stay "likes", not become "has" or "is_for".
 
 For statements and instructions, extract full relations.
 For questions and exclamations, extract only what is mentioned — leave "action", "effect", and "object" as empty strings "".
@@ -31,6 +33,7 @@ EXTRACTION RULES:
 - If a sentence contains multiple relations, return one JSON object per relation.
 - Convert every word to its lemma (base form). Exception: "be" becomes "is".
 - Words in plural become singular ("animals" → "animal").
+- Spaces are replaced with underscores ("human philosopher" --> "human_philosopher")
 - Do not lemmatize proper nouns ("Socrates" stays "Socrates").
 - ALWAYS resolve pronouns to the name they refer to. There may be NO "he", "she", "it", "you", "I", etc. anywhere in the response.
 - Use lowercase for all values including concepts.

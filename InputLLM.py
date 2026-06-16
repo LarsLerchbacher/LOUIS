@@ -30,11 +30,14 @@ EXTRACTION RULES:
 - If a sentence contains multiple relations, return one JSON object per relation.
 - Convert every word to its lemma (base form). Exception: "be" becomes "is".
 - Words in plural become singular ("animals" → "animal").
+- Spaces are replaced with underscores ("human philosopher" --> "human_philosopher")
 - Do not lemmatize proper nouns ("Socrates" stays "Socrates").
 - ALWAYS resolve pronouns to the name they refer to. There may be NO "he", "she", "it", "you", "I", etc. anywhere in the response.
 - Use lowercase for all values including concepts.
 - Exclude articles (a, an, the) from tokens.
 - Do not substitute synonyms. Use the exact term from the input.
+- Do not substitute the stated relation with a simpler or more common one.
+"likes" must stay "likes", not become "has" or "is_for".
 - Concepts go in "subject" or "object", never in "action".
 - "action" must use underscores and be the simplest possible relation (e.g. is_a, is_for, has_property, causes, requires).
 - "action" must NEVER be a single literal word copied from the input.
@@ -57,13 +60,13 @@ EXAMPLES:
 Input: "Socrates!!!"
 Output:
 [
-  {{"intent": "exclamation", "subject": "Socrates", "action": "", "effect": "", "object": "", "modifiers": [], "tokens": ["Socrates"]}}
+  {{"intent": "exclamation", "subject": "socrates", "action": "", "effect": "", "object": "", "modifiers": [], "tokens": ["Socrates"]}}
 ]
 
 Input: "Is Socrates a man?"
 Output:
 [
-  {{"intent": "question", "subject": "Socrates", "action": "", "effect": "", "object": "", "modifiers": [], "tokens": ["Socrates", "man"]}}
+  {{"intent": "question", "subject": "socrates", "action": "", "effect": "", "object": "", "modifiers": [], "tokens": ["Socrates", "man"]}}
 ]
 
 Input: "Being tired stops the cat from hunting."

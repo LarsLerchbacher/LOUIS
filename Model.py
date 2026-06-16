@@ -1,10 +1,12 @@
 import json
 import logging
+import hashlib
 import os
 import sqlite3
 from datetime import datetime
 from Node import Node
 from Relation import Relation
+from pathlib import Path
 
 
 class Model:
@@ -20,6 +22,7 @@ class Model:
         self.nodes = {}
         self.fired_nodes = []
         self.stack = set()
+        self.threshold = 0.5
 
         self.setup_logging()
         self.setup_db()
@@ -55,9 +58,7 @@ class Model:
 
         Recreates the database file on each run to ensure a clean slate.
         """
-        db_path = "tmp.db"
-        if os.path.exists(db_path):
-            os.remove(db_path)
+        db_path = "database.sqlite"
         self.db = sqlite3.connect(db_path)
         self.db.isolation_level = None
         self.cursor = self.db.cursor()
@@ -66,8 +67,7 @@ class Model:
             name VARCHAR(100) NOT NULL,
             known BOOLEAN NOT NULL,
             confidence DOUBLE NOT NULL,
-            activation DOUBLE NOT NULL,
-            threshold DOUBLE NOT NULL
+            activation DOUBLE NOT NULL
         );""")
         
         self.cursor.execute("""CREATE TABLE IF NOT EXISTS relations (
@@ -79,6 +79,12 @@ class Model:
             type VARCHAR(8) NOT NULL,
             last_fired VARCHAR(20),
             last_decayed VARCHAR(20)
+        );""")
+        
+        self.cursor.execute("""CREATE TABLE IF NOT EXISTS files(
+            path VARCHAR(100) NOT NULL,
+            last_modified VARCHAR(20),
+            checksum VARCHAR(50) NOT NULL
         );""")
     
     def log(self, text: str) -> None:
@@ -127,8 +133,6 @@ class Model:
                 result["confidence"] = float(line.removeprefix("Confidence: "))
             elif "Activation: " in line:
                 result["activation"] = float(line.removeprefix("Activation: "))
-            elif "Threshold: " in line:
-                result["threshold"] = float(line.removeprefix("Threshold: "))
             elif "## Relations" in line:
                 result["relations"] = []
             # Skip table header and separator rows
@@ -162,7 +166,7 @@ class Model:
                     else:
                         self.err(f"Unexpected error parsing relation at line {i}: {e}")
 
-        required = ["name", "known", "confidence", "activation", "threshold", "relations"]
+        required = ["name", "known", "confidence", "activation", "relations"]
         for prop in required:
             if prop not in result:
                 raise RuntimeError(f"Missing required node property '{prop}' in markdown.")
@@ -215,42 +219,16 @@ class Model:
         return inherited_relations
 
     def discover(self):
-        """Scan the knowledge directory and load all markdown files as nodes.
-
-        Each file is parsed into a Node and its relations are inserted into the database.
-        Nodes are stored in memory and persisted to the SQLite database.
-        """
+        """Scan the knowledge directory and load all markdown files as nodes."""
         self.nodes = {}
 
-        for filename in os.listdir(self.name):
-            if filename.startswith("."):
-                continue
-            filepath = os.path.join(self.name, filename)
-            try:
-                with open(filepath, encoding="utf-8") as file:
-                    content = file.read()
-                try:
-                    data = self.parse_markdown(content)
-                    node = Node.fromJSON(data)
-                    self.nodes[node.get_name()] = node
-                    for rel in node.get_relations():
-                        self.cursor.execute(
-                            "INSERT INTO relations (subj, name, obj, weight, type, last_fired, last_decayed) VALUES (?, ?, ?, ?, ?, ?, ?);",
-                            (rel.get_subj(), rel.get_name(), rel.get_obj(), rel.get_weight(),
-                             rel.get_rel_type(), rel.get_last_fired(), rel.get_last_decayed())
-                        )
-                    self.cursor.execute(
-                        "INSERT INTO nodes (name, known, confidence, activation, threshold) VALUES (?, ?, ?, ?, ?);",
-                        (node.get_name(), node.get_known(),
-                         node.get_confidence(), node.get_activation(), node.get_threshold())
-                    )
-                    self.log(f"Loaded node: {node.get_name()}")
-                except RuntimeError as e:
-                    self.err(f"Failed to parse {filename}: {e}")
-            except Exception as e:
-                self.err(f"Failed to read {filename}: {e}")
+        for row in self.cursor.execute("SELECT * FROM nodes;").fetchall():
+            node = Node.fromJSON({"name": row[0], "known": row[1] == "True", "confidence": row[2], "activation": row[3], "relations": []})
+            for rel in self.get_direct_relations(node):
+                node.add_relation(rel)
+            self.nodes[node.get_name()] = node
+            
 
-    
     def get_node(self, name: str) -> Node:
         """Retrieve a node by name, creating it if it doesn't exist."""
         if name in self.nodes:
@@ -262,6 +240,7 @@ class Model:
         """Create a new node with default properties and persist it."""
         node = Node(name)
         self.nodes[name] = node
+        self.cursor.execute("INSERT INTO nodes (name, known, confidence, activation) VALUES (?, ?, ?, ?);", (name, False, 0.0, 0.0))
         self.save_node(name)
         return node
 
@@ -310,16 +289,13 @@ class Model:
             self.err(f"Failed to save relation {rel.get_name()} ({rel.get_subj()} -> {rel.get_obj()}): {e}")
 
     def save_node(self, name: str) -> None:
-        """Write a node's state to its markdown file and update the database."""
+        """Write a node's state to the database."""
         try:
             node = self.nodes[name]
-            with open(os.path.join(self.name, name + ".md"), "w", encoding="utf-8") as file:
-                file.write(str(node))
-
             self.cursor.execute(
-                "UPDATE nodes SET known = ?, confidence = ?, activation = ?, threshold = ? WHERE name == ?;",
+                "UPDATE nodes SET known = ?, confidence = ?, activation = ? WHERE name == ?;",
                 (node.get_known(), node.get_confidence(),
-                 node.get_activation(), node.get_threshold(), node.get_name())
+                 node.get_activation(), node.get_name())
             )
         except Exception as e:
             self.err(f"Unexpected error while writing node '{name}': {e}")
@@ -390,7 +366,7 @@ class Model:
             node = self.get_node(current_name)
             node.set_activation(node.get_activation() + current_act)
 
-            if node.get_activation() >= node.get_threshold():
+            if node.get_activation() >= self.threshold:
                 self.direct_keys = {
                     (rel.get_subj(), rel.get_name(), rel.get_obj())
                     for rel in self.get_direct_relations(node)
@@ -432,7 +408,7 @@ class Model:
             target_new_act = target.get_activation() + target_act
 
             if rel.get_rel_type() == "ACTIVATES":
-                strengthened = target_new_act >= target.get_threshold()
+                strengthened = target_new_act >= self.threshold
             else:
                 strengthened = target_new_act < target.get_activation() * 0.8
 

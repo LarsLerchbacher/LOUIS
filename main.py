@@ -2,7 +2,6 @@ from datetime import datetime
 import json
 from InputLLM import InputLLM
 import os
-from LearningLLM import LearningLLM
 import logging
 from OutputLLM import OutputLLM
 import sqlite3
@@ -16,10 +15,9 @@ global model, input_llm, output_llm, learn_llm
 
 def main() -> None:
     global model, input_llm, output_llm, learn_llm
-    model = Model("base", True)
+    model = Model("test", False)
     input_llm = InputLLM("qwen3:14b-q4_K_M", model.name)
     output_llm = OutputLLM("qwen3:14b-q4_K_M", model.name)
-    learn_llm = LearningLLM("qwen3:14b-q4_K_M", model.name)
 
     message = input("> ")
     while message != "/exit":
@@ -45,13 +43,12 @@ def turn(message: str) -> str:
 
         context = (
             f"Activated concepts: {[n.get_name() for n in output_nodes]}\n"
-            f"Relations between concepts: {output_relations}"
-            f"Unknown conecpts: {[n for n in model.nodes if not model.get_node(n).get_known()]}"
+            f"Relations between concepts: {output_relations}\n"
+            f"Unknown conecpts: {[n for n in model.nodes if not model.get_node(n).get_known()]}\n"
             f"User: {message}\n"
         )
         model.log(context)
         response = output_llm.send(context)
-        model.parse_json(learn_llm.send(response))
         return response
 
 
