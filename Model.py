@@ -24,7 +24,7 @@ class Model:
         self.fired_nodes = []
         self.stack = set()
         self.threshold = 0.5
-        self.hop_limit = 1
+        self.hop_limit = 2
 
         self.setup_logging()
         self.setup_db()
@@ -340,14 +340,17 @@ class Model:
         self.get_node(subj).add_relation(rel)
         self.save_relation(rel)
         
-    def add_activation(self, name: str, activation_amount: float, erase: bool = True):
-        """Spread activation energy through the network via relations.
+    def add_activation(self, name: str, activation_amount: float, erase: bool = True, intent: str = "UNKNOWN"):
+        """Spread activation energy through the network via relations based on intent.
 
         Args:
             name: Starting node name.
             activation_amount: Activation amount to add.
             erase: Whether to clear existing stack and reset activations first.
+            intent: The intent to guide activation spreading (WHO, WHAT, WHY, HOW, RELATE).
         """
+        self.log(f"Activating {name}")
+
         if erase:
             self.stack = set()
 
@@ -358,14 +361,17 @@ class Model:
             current_name, current_act, current_hop = self.stack.pop()
 
             if current_hop > self.hop_limit:
+                self.log("Max hop limit reached. Skipping node")
                 continue
 
             if current_name in processed_nodes:
+                self.log("Node already processed")
                 continue
             processed_nodes.add(current_name)
 
             node = self.get_node(current_name)
             node.set_activation(node.get_activation() + current_act)
+            self.save_node(current_name)
 
             if node.get_activation() >= self.threshold:
                 self.direct_keys = {
@@ -375,6 +381,19 @@ class Model:
 
                 self.seen_relations = set()
                 for rel in self.get_relations(node):
+                    self.log(f"Processing {str(rel)}")
+                    # Filter relations based on intent
+                    if intent == "WHO" and rel.get_name() != "is_a":
+                        continue  # Only follow "is_a" relations for identity/hierarchy
+                    elif intent == "WHAT" and rel.get_name() not in ("has", "has_property", "is_a"):
+                        continue  # Only follow "has" or "has_property" relations for definitions/attributes
+                    elif intent == "WHY" and rel.get_name() not in ("causes", "supports"):
+                        continue  # Only follow "causes" or "supports" relations for causal/supporting edges
+                    elif intent == "HOW" and current_hop >= 2:
+                        continue  # Limit to multi-hop paths (e.g., 2 hops)
+                    elif intent == "RELATE" and rel.get_name() in ("is_a", "has", "has_property", "causes", "supports"):
+                        continue  # Focus on direct relations for shortest path search
+
                     self.strengthen_relation(node, rel, current_hop)
 
                 self.save_node(current_name)
@@ -387,6 +406,8 @@ class Model:
             rel: The relation to propagate through.
             current_hop: Current hop count.
         """
+        self.log(f"Strenthening {str(rel)}")
+
         rel_key = (rel.get_subj(), rel.get_name(), rel.get_obj())
         if rel_key in self.seen_relations:
             return
@@ -404,13 +425,15 @@ class Model:
         else:
             target_act = round(node.get_activation() * rel.get_weight() * -1, 4)
 
+        self.log(f"Propagating activation to {target_name}: {target_act}")
         self.stack.add((target_name, target_act, current_hop + 1))
 
         if not is_inherited:
             target = self.get_node(target_name)
             target_new_act = target.get_activation() + target_act
+            self.log(f"Updating activation for {target_name}: {target.get_activation()} -> {target_new_act}")
 
-            if rel.get_rel_type() == "ACTIVATES":
+            if rel.get_rel_type() == "ACTIVATES" or rel.get_rel_type() == "ACTIVATE":
                 strengthened = target_new_act >= self.threshold
             else:
                 strengthened = target_new_act < target.get_activation() * 0.8
@@ -426,8 +449,8 @@ class Model:
         ).fetchall()
         return [self.get_node(row[0]) for row in rows]
 
-    def feed_input(self, subj: str, rel: str, obj: str, rel_type: str = "ACTIVATES") -> None:
-        """Inject an input triple into the model and activate related nodes."""
+    def feed_input(self, subj: str, rel: str, obj: str, rel_type: str = "ACTIVATES", intent: str = "UNKNOWN") -> None:
+        """Inject an input triple into the model and activate related nodes based on intent."""
         self.info("Feeding input...")
         #self.reduce_activation()
 
@@ -438,7 +461,7 @@ class Model:
 
         self.stack.add((subj, 1.0, 0))
         self.stack.add((rel, 1.0, 0))
-        self.add_activation(obj, 1.0, False)
+        self.add_activation(obj, 1.0, False, intent)
         self.nodes[subj].set_activation(1.0)
         self.nodes[obj].set_activation(1.0)
 
@@ -517,4 +540,71 @@ class Model:
             net.add_edge(src, tgt, label=relation, title=f"weight: {weight:.3f}")
         
         net.save_graph("graph.html")
+    
+    def parse_intent(self, q: str) -> str:
+        ql = q.lower()
 
+        if ql.startswith("who is") or "who is" in ql:
+            return "WHO"
+
+        if ql.startswith("what is") or "define" in ql:
+            return "WHAT"
+
+        if ql.startswith("why"):
+            return "WHY"
+
+        if ql.startswith("how"):
+            return "HOW"
+
+        if "related" in ql or "relation" in ql:
+            return "RELATE"
+
+        return "UNKNOWN" 
+
+    def query(self, text: str):
+        text = text.lower()
+        
+        intent = self.parse_intent(text)
+        nodes = self.parse_nodes(text)
+        
+        self.log(f"Detected {intent} intent.")
+        
+        if len(nodes) == 0:
+            return []
+    
+        
+        for node in nodes[1:]:
+            self.stack.add((node, 1.0, 0))
+        
+        self.add_activation(nodes[0], 1.0, False, intent)
+    
+    def parse_nodes(self, text: str) -> list[str]:
+        text = text.lower()
+        nodes = []
+
+        for word in text.split(" "):
+            for node in self.cursor.execute("SELECT name FROM nodes WHERE name == ?;", (word,)).fetchall():
+                nodes.append(node[0]) 
+        
+        return nodes
+
+    def generate_context(self) -> str:
+        output_nodes = self.get_output()
+
+        output_relations = set()
+        for node in output_nodes:
+            for rel in self.get_relations(node):
+                subj_node = self.get_node(rel.get_subj())
+                obj_node = self.get_node(rel.get_obj())
+                
+                rel_text = f"{rel.get_subj()} --> {rel.get_name()} --> {rel.get_obj()} ({rel.get_rel_type()})" 
+                if rel_text not in output_relations and (subj_node in output_nodes and obj_node in output_nodes):
+                    output_relations.add(rel_text)
+
+        context = (
+            f"Nodes: {[n.get_name() for n in output_nodes]}\n"
+            f"Relations: {output_relations}\n"
+        )
+        self.log(context) 
+        
+        return context

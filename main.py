@@ -1,73 +1,42 @@
 import argparse
-from datetime import datetime
 import json
-from InputLLM import InputLLM
 import os
 import logging
-from OutputLLM import OutputLLM
 import sqlite3
 
+from datetime import datetime
+from InputLLM import InputLLM
 from Node import Node
 from Model import Model
 from Relation import Relation
-from NormalizerLLM import NormalizerLLM
 
-global model, input_llm, output_llm, learn_llm, normalizer_llm
-
+global model, input_llm
 
 def main() -> None:
-    global model, input_llm, output_llm, learn_llm, normalizer_llm
+    global model, input_llm
 
     message = input("> ")
-    while message != "/exit":
-        response = turn(message)
-        print(response)
-        message = input("> ")
-
-def turn(message: str) -> str:
-    global model, input_llm, output_llm, learn_llm, normalizer_llm
-
-    # Step 1: Extract raw facts using InputLLM
     raw_facts = input_llm.send(message)
     
-    # Step 2: Normalize the extracted facts using NormalizerLLM
-    normalized_facts = normalizer_llm.send(raw_facts)
-    
-    # Step 3: Parse and feed the normalized facts into the model
     if model.parse_json(normalized_facts) == 0:
-        output_nodes = model.get_output()
-
-        output_relations = set()
-        for node in output_nodes:
-            for rel in model.get_relations(node):
-                subj_node = model.get_node(rel.get_subj())
-                obj_node = model.get_node(rel.get_obj())
-                
-                rel_text = f"{rel.get_subj()} --> {rel.get_name()} --> {rel.get_obj()} ({rel.get_rel_type()})" 
-                if rel_text not in output_relations and (subj_node in output_nodes and obj_node in output_nodes):
-                    output_relations.add(rel_text)
-
-        context = (
-            f"Nodes: {[n.get_name() for n in output_nodes]}\n"
-            f"Relations: {output_relations}\n"
-            f"User: {message}\n"
-        )
-        model.log(context)
-        response = output_llm.send(context)
+        context = model.generate_context() 
         model.generate_graph_view()
         print(context)
-        return response
     else:
-        return "=====>>> The program ran into an error while processing your request. Please check the logs for more details! <<<====="
+        print("=====>>> The program ran into an error while processing your request. Please check the logs for more details! <<<=====")
+        
+def query() -> None:
+    global model, input_llm
 
-
+    message = input("> ") 
+    model.query(message)
+    
+    print(model.generate_context())
 
 if __name__ == "__main__":
     global model, input_llm, output_llm, learn_llm, normalizer_llm
-    model = Model("test", True)
+    model = Model("test", False)
     input_llm = InputLLM("lfm2.5", model.name)
-    normalizer_llm = NormalizerLLM("lfm2.5", model.name)
-    output_llm = OutputLLM("lfm2.5", model.name)
 
     parser = argparse.ArgumentParser(
         prog="louis",
@@ -80,13 +49,18 @@ if __name__ == "__main__":
     subparsers = parser.add_subparsers(dest="command", metavar="COMMAND")
     subparsers.required = True
 
-    chat_parser = subparsers.add_parser("chat", help="Start a chat with the AI model in the terminal")
+    write_parser = subparsers.add_parser("write", help="Write structured facts to the graph")
+    query_parser = subparsers.add_parser("query", help="Query the graph about a question/concept")
     graph_parser = subparsers.add_parser("graph", help="View a graph representation of the AI models memory")
     
     args = parser.parse_args()
     
-    if args.command == "chat":
+    if args.command == "write":
         main()
+    elif args.command == "query":
+        query()
     elif args.command == "graph":
         model.generate_graph_view()
         os.open("graph.html")
+
+

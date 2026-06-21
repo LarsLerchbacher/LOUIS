@@ -77,6 +77,9 @@ lib64/
 local_settings.py
 *.log
 logs
+
+database.sqlite
+
 *.manifest
 MANIFEST
 __marimo__/

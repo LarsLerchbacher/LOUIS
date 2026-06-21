@@ -82,4 +82,4 @@ class Relation:
         return f"|{self.name}|[[{self.obj}]]|{self.weight}|{self.rel_type}|{self.last_fired}|{self.last_decayed}|"
     
     def __str__(self) -> str:
-        return f"{self.subj} {self.name} {self.obj} (subj {self.rel_type}S obj)"
+        return f"{self.subj} {self.name} {self.obj} (subj {self.rel_type} obj)"
