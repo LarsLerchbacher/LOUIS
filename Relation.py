@@ -10,13 +10,12 @@ class Relation:
     """
 
     def __init__(self, subj: str, name: str, obj: str, weight: float,
-                 rel_type: str, last_fired: datetime,
+                 last_fired: datetime,
                  last_decayed: datetime = None):
         self.subj = subj
         self.name = name
         self.obj = obj
         self.weight = weight
-        self.rel_type = rel_type
         self.last_fired = last_fired
         self.last_decayed = last_decayed
 
@@ -25,7 +24,7 @@ class Relation:
         """Create a Relation from a parsed dictionary."""
         return Relation(
             json_dict["subj"], json_dict["name"], json_dict["obj"],
-            json_dict["weight"], json_dict["type"],
+            json_dict["weight"],
             json_dict["last_fired"], json_dict["last_decayed"]
         )
 
@@ -42,9 +41,6 @@ class Relation:
 
     def get_weight(self) -> float:
         return self.weight
-
-    def get_rel_type(self) -> str:
-        return self.rel_type
 
     def get_last_fired(self) -> str:
         """Return last_fired as ISO string."""
@@ -69,9 +65,6 @@ class Relation:
         """Set weight, clamped to [0.0, 1.0]."""
         self.weight = round(min(1.0, max(0.1, weight)), 4)
 
-    def set_rel_type(self, rel_type: str) -> None:
-        self.rel_type = rel_type
-
     def set_last_fired(self, last_fired: datetime) -> None:
         self.last_fired = last_fired
 
@@ -79,7 +72,8 @@ class Relation:
         self.last_decayed = last_decayed
 
     def render_markdown(self) -> str:
-        return f"|{self.name}|[[{self.obj}]]|{self.weight}|{self.rel_type}|{self.last_fired}|{self.last_decayed}|"
+        return f"|{self.name}|[[{self.obj}]]|{self.weight}|{self.last_fired}|{self.last_decayed}|"
     
     def __str__(self) -> str:
-        return f"{self.subj} {self.name} {self.obj} (subj {self.rel_type} obj)"
+        return f"{self.subj} --- {self.name} --> {self.obj}"
+

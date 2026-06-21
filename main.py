@@ -16,14 +16,11 @@ def main() -> None:
     global model, input_llm
 
     message = input("> ")
-    raw_facts = input_llm.send(message)
+    model.write(message)
     
-    if model.parse_json(normalized_facts) == 0:
-        context = model.generate_context() 
-        model.generate_graph_view()
-        print(context)
-    else:
-        print("=====>>> The program ran into an error while processing your request. Please check the logs for more details! <<<=====")
+    context = model.generate_context() 
+    model.generate_graph_view()
+    print(context)
         
 def query() -> None:
     global model, input_llm
@@ -36,7 +33,6 @@ def query() -> None:
 if __name__ == "__main__":
     global model, input_llm, output_llm, learn_llm, normalizer_llm
     model = Model("test", False)
-    input_llm = InputLLM("lfm2.5", model.name)
 
     parser = argparse.ArgumentParser(
         prog="louis",

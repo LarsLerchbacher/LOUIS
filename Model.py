@@ -3,8 +3,10 @@ import logging
 import hashlib
 import os
 import sqlite3
+import spacy
 import traceback
 from datetime import datetime
+from InputLLM import InputLLM
 from Node import Node
 from Relation import Relation
 from pathlib import Path
@@ -25,6 +27,21 @@ class Model:
         self.stack = set()
         self.threshold = 0.5
         self.hop_limit = 2
+        self.nlp = spacy.load("en_core_web_sm")
+        self.allowed_relations = [
+            "is_a",
+            "instance_of",
+            "part_of",
+            "has_part",
+            "has_property"
+            "located_in",
+            "causes",
+            "depends_on",
+            "has",
+            "owned_by",
+            "interacts_with"
+
+        ]
 
         self.setup_logging()
         self.setup_db()
@@ -78,7 +95,6 @@ class Model:
             name VARCHAR(100) NOT NULL,
             obj VARCHAR(100) NOT NULL,
             weight DOUBLE NOT NULL,
-            type VARCHAR(8) NOT NULL,
             last_fired VARCHAR(20),
             last_decayed VARCHAR(20)
         );""")
@@ -106,9 +122,9 @@ class Model:
             Activation: 0.0
             Threshold: 0.5
 
-            |Relation|Target|Weight|Type|Last Activated|Last Decayed|
-            |---|---|---|---|---|---|
-            |is_a|[[human]]|0.8|ACTIVATES|2025-01-01T00:00:00|2025-01-01T00:00:00|
+            |Relation|Target|Weight|Last Activated|Last Decayed|
+            |---|---|---|---|---|
+            |is_a|[[human]]|0.8|2025-01-01T00:00:00|2025-01-01T00:00:00|
 
         Raises RuntimeError if any required property is missing.
         """
@@ -132,16 +148,16 @@ class Model:
             elif "## Relations" in line:
                 result["relations"] = []
             # Skip table header and separator rows
-            elif "|Relation|Target|Weight|Type|Last Activated|Last Decayed|" in line:
+            elif "|Relation|Target|Weight|Last Activated|Last Decayed|" in line:
                 continue
-            elif "|---|---|---|---|---|---|" in line:
+            elif "|---|---|---|---|---|" in line:
                 continue
             else:
                 rel = {}
                 line = line.removeprefix("|").removesuffix("|")
                 parts = [p.strip() for p in line.split("|")]
 
-                if len(parts) < 5:
+                if len(parts) < 4:
                     self.err(f"Invalid relation at line {i}. Skipping.")
                     continue
 
@@ -150,9 +166,8 @@ class Model:
                     rel["name"] = parts[0]
                     rel["obj"] = parts[1].removeprefix("[[").removesuffix("]]")
                     rel["weight"] = float(parts[2])
-                    rel["type"] = parts[3]
-                    rel["last_fired"] = datetime.fromisoformat(parts[4])
-                    rel["last_decayed"] = datetime.fromisoformat(parts[5])
+                    rel["last_fired"] = datetime.fromisoformat(parts[3])
+                    rel["last_decayed"] = datetime.fromisoformat(parts[4])
                     result["relations"].append(Relation.fromJSON(rel))
                 except ValueError as e:
                     if "float" in str(e):
@@ -173,7 +188,7 @@ class Model:
         """Walk direct is_a relations to find the parent (superclass) node."""
         name = node.get_name()
         results = self.cursor.execute(
-            "SELECT subj, obj FROM relations WHERE type == 'is_a' AND (subj == ? OR obj == ?);",
+            "SELECT subj, obj FROM relations WHERE name == 'is_a' AND (subj == ? OR obj == ?);",
             (name, name)
         ).fetchall()
         for row in results:
@@ -187,7 +202,7 @@ class Model:
         """Walk the is_a chain and collect inherited relations with decaying weight per hop.
 
         Inherited relations are virtual — they are not stored or strengthened.
-        Relations of type 'is_a' are never inherited.
+        Relations of name 'is_a' are never inherited.
         """
         inherited_relations = []
         hop = 1
@@ -202,12 +217,12 @@ class Model:
             discount = 0.8 ** hop
             parent_rels = self.get_direct_relations(parent)
             for rel in parent_rels:
-                if rel.get_rel_type() == "is_a":
+                if rel.get_rel_name() == "is_a":
                     continue
                 inherited_rel = Relation(
                     rel.get_subj(), rel.get_name(), rel.get_obj(),
                     round(rel.get_weight() * discount, 4),
-                    rel.get_rel_type(), rel.get_last_fired()
+                    rel.get_last_fired()
                 )
                 inherited_relations.append(inherited_rel)
             current = parent
@@ -306,12 +321,12 @@ class Model:
         raw = self.cursor.execute("SELECT * FROM relations WHERE id == ?;", (relation_id,)).fetchone()
         if raw is None:
             raise ValueError(f"Relation with id {relation_id} not found.")
-        if len(raw) < 8:
-            raise ValueError(f"Invalid relation data for id {relation_id}. Expected 8 columns, got {len(raw)}.")
+        if len(raw) < 7:
+            raise ValueError(f"Invalid relation data for id {relation_id}. Expected 7 columns, got {len(raw)}.")
         data = {
             "subj": raw[1], "name": raw[2], "obj": raw[3], "weight": raw[4],
-            "type": raw[5], "last_fired": datetime.fromisoformat(raw[6]),
-            "last_decayed": datetime.fromisoformat(raw[7])
+            "last_fired": datetime.fromisoformat(raw[5]),
+            "last_decayed": datetime.fromisoformat(raw[6])
         }
         return Relation.fromJSON(data)
 
@@ -329,13 +344,13 @@ class Model:
         rels.extend(self.get_inherited_relations(node))
         return rels
 
-    def add_relation(self, subj: str, action: str, obj: str, rel_type: str = "ACTIVATES") -> None:
+    def add_relation(self, subj: str, action: str, obj: str) -> None:
         """Create a new relation between two nodes and persist it."""
         now = datetime.now().isoformat()
-        rel = Relation(subj, action, obj, 0.5, rel_type, now, now)
+        rel = Relation(subj, action, obj, 0.5, now, now)
         self.cursor.execute(
-            "INSERT INTO relations (subj, name, obj, weight, type, last_fired, last_decayed) VALUES (?, ?, ?, ?, ?, ?, ?);",
-            (subj, action, obj, 0.5, rel_type, now, now)
+            "INSERT INTO relations (subj, name, obj, weight, last_fired, last_decayed) VALUES (?, ?, ?, ?, ?, ?);",
+            (subj, action, obj, 0.5, now, now)
         )
         self.get_node(subj).add_relation(rel)
         self.save_relation(rel)
@@ -420,10 +435,7 @@ class Model:
         else:
             target_name = rel.get_subj()
 
-        if rel.get_rel_type() == "ACTIVATES":
-            target_act = round(node.get_activation() * rel.get_weight(), 4)
-        else:
-            target_act = round(node.get_activation() * rel.get_weight() * -1, 4)
+        target_act = round(node.get_activation() * rel.get_weight(), 4)
 
         self.log(f"Propagating activation to {target_name}: {target_act}")
         self.stack.add((target_name, target_act, current_hop + 1))
@@ -433,10 +445,7 @@ class Model:
             target_new_act = target.get_activation() + target_act
             self.log(f"Updating activation for {target_name}: {target.get_activation()} -> {target_new_act}")
 
-            if rel.get_rel_type() == "ACTIVATES" or rel.get_rel_type() == "ACTIVATE":
-                strengthened = target_new_act >= self.threshold
-            else:
-                strengthened = target_new_act < target.get_activation() * 0.8
+            strengthened = target_new_act >= self.threshold
 
             rel.set_weight(round(rel.get_weight() * (1.005 if strengthened else 0.995), 4))
             rel.set_last_fired(datetime.now())
@@ -449,29 +458,24 @@ class Model:
         ).fetchall()
         return [self.get_node(row[0]) for row in rows]
 
-    def feed_input(self, subj: str, rel: str, obj: str, rel_type: str = "ACTIVATES", intent: str = "UNKNOWN") -> None:
-        """Inject an input triple into the model and activate related nodes based on intent."""
-        self.info("Feeding input...")
+    def feed_input(self, subj: str, rel: str, obj: str, intent: str = "UNKNOWN") -> None:
         #self.reduce_activation()
 
         subj = subj.lower().strip()
         rel = rel.lower().strip()
         obj = obj.lower().strip()
-        rel_type = rel_type.upper().strip()
 
         self.stack.add((subj, 1.0, 0))
         self.stack.add((rel, 1.0, 0))
         self.add_activation(obj, 1.0, False, intent)
-        self.nodes[subj].set_activation(1.0)
-        self.nodes[obj].set_activation(1.0)
 
         row = self.cursor.execute(
-            "SELECT id FROM relations WHERE subj = ? AND name = ? AND obj = ? AND type = ?;",
-            (subj, rel, obj, rel_type)
+            "SELECT id FROM relations WHERE subj = ? AND name = ? AND obj = ?;",
+            (subj, rel, obj)
         ).fetchone()
 
         if row == None:
-            self.add_relation(subj, rel, obj, rel_type)
+            self.add_relation(subj, rel, obj)
             relation_id = self.cursor.lastrowid
         else:
             relation_id = row[0]
@@ -572,7 +576,6 @@ class Model:
         if len(nodes) == 0:
             return []
     
-        
         for node in nodes[1:]:
             self.stack.add((node, 1.0, 0))
         
@@ -580,13 +583,36 @@ class Model:
     
     def parse_nodes(self, text: str) -> list[str]:
         text = text.lower()
+        doc = self.nlp(text)
         nodes = []
+        
+        names = []
+        for chunk in doc.noun_chunks:
+            names.extend([token.lemma_ for token in chunk if token.pos_ in ("NOUN", "PROPN")])
+        
+        self.warn(names)
 
-        for word in text.split(" "):
+        for word in names:
             for node in self.cursor.execute("SELECT name FROM nodes WHERE name == ?;", (word,)).fetchall():
                 nodes.append(node[0]) 
         
         return nodes
+
+    def write(self, text: str):
+        text = text.lower()
+        
+        doc = self.nlp(text)
+        
+        for sentence in doc.sents:
+            self.log(f"Processing sentence '{sentence.text}'")
+            nodes = []
+            
+            for token in sentence:
+                nodes.append(token.lemma_)
+
+            json_data = InputLLM("lfm2.5").send(f"Source Text: {sentence}\nLemmatized words: {nodes}")
+            self.log(f"Extracted relations: {json_data}")
+            self.parse_json(json_data)
 
     def generate_context(self) -> str:
         output_nodes = self.get_output()
@@ -597,9 +623,12 @@ class Model:
                 subj_node = self.get_node(rel.get_subj())
                 obj_node = self.get_node(rel.get_obj())
                 
-                rel_text = f"{rel.get_subj()} --> {rel.get_name()} --> {rel.get_obj()} ({rel.get_rel_type()})" 
-                if rel_text not in output_relations and (subj_node in output_nodes and obj_node in output_nodes):
+                rel_text = f"{rel.get_subj()} --> {rel.get_name()} --> {rel.get_obj()}"
+                if rel_text not in output_relations and rel.get_weight() > 0.5:
                     output_relations.add(rel_text)
+                    
+                if len(output_relations) == 10:
+                    break
 
         context = (
             f"Nodes: {[n.get_name() for n in output_nodes]}\n"
@@ -608,3 +637,4 @@ class Model:
         self.log(context) 
         
         return context
+

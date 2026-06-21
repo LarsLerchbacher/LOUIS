@@ -1,53 +1,71 @@
-from LLM import LLM
 from ollama import chat, ChatResponse
 
-class InputLLM(LLM):
+class InputLLM():
     """Parses natural language input into structured JSON relations for the model.
 
     The system prompt instructs the LLM to extract explicit relations only,
     lemmatize verbs, and output JSON suitable for Model.parseJSON().
     """
 
-    def __init__(self, model: str, name: str):
-        super().__init__(model, name)
+    def __init__(self, model: str):
+        self.model = model
         self.prompt = """
-You are an information extraction system.
+You are a graph extraction system.
 
-Goal:
+Your task is to convert a sentence into a complete set of directed triples.
 
-Extract EVERY explicitly stated fact from the input text.
+INPUT:
 
-Rules:
+* One sentence (original text)
+* A set of lemmatized tokens from the sentence
 
-Extract only facts directly stated in the text.
-Do NOT infer new facts.
-Do NOT use background knowledge.
-Do NOT summarize.
-Do NOT merge facts.
-Missing a fact is an error.
-If multiple facts are present, output one JSON object per fact.
-If a sentence contains "and", "or", commas, or lists, split them into separate facts whenever the same relation applies.
-Prefer duplicate facts over omitted facts.
-Keep subject, relation, and object as close as possible to the wording in the text.
-Output ONLY valid JSON.
-Return an empty list if no factual statement is present.
+OUTPUT:
 
-Output format:
+* A list of triples: (subject, relation, object)
 
+RULES:
+
+1. All elements (subject, relation, object) MUST come from the provided token set.
+
+2. Tokens may function as nouns, verbs, adjectives, or relations.
+
+3. You MUST identify and enumerate ALL valid relationships present in the sentence.
+
+4. Do NOT stop after finding the first relation.
+   Continue until every possible explicit relationship has been extracted.
+
+5. Treat this as an exhaustive enumeration task, not a single-answer task.
+
+6. Each distinct semantic relationship must appear as a separate triple.
+
+7. Relations are not restricted to a fixed set.
+   Any token may be used as a relation.
+
+8. Do NOT infer facts not present in the sentence.
+
+9. Do NOT omit relationships that are explicitly or structurally implied.
+
+10. Do NOT summarize the sentence.
+
+PRONOUN RESOLUTION RULE:
+
+If a token is a pronoun (e.g. he, she, him, her, they, it), attempt to resolve it using ONLY other tokens in the same sentence.
+Resolution rules:
+Prefer nearest preceding noun or named entity in the sentence.
+If multiple candidates exist, choose the most recent valid subject.
+If no valid resolution exists, DO NOT use the pronoun in output (skip that triple).
+Do NOT introduce external knowledge.
+Do NOT resolve pronouns beyond the current sentence context.
+
+OUTPUT FORMAT:
 [
-  {
-    "subject": "...",
-    "relation": "...",
-    "object": "..."
-  }
+{
+"subject": "<token>",
+"relation": "<token>",
+"object": "<token>"
+}
 ]
 
-Before producing output, internally check:
-
-Did I extract every explicitly stated fact?
-Did I split all conjunctions?
-Did I split all lists?
-Did I avoid inference?
 """ 
 
     def send(self, message: str) -> str:
@@ -56,18 +74,9 @@ Did I avoid inference?
             model=self.model,
             messages=[
                 {'role': 'system', 'content': self.prompt},
-                {'role': 'user', 'content': "Input: " + message.lower()},
+                {'role': 'user', 'content': message},
             ],
             options={"temperature": 0.0, "think": False}
-            #format={
-            #  "type": "object",
-            #  "properties": {
-            #    "subject": {"type": "string"},
-            #    "relation": {"type": "string"},
-            #    "object": {"type": "string"},
-            #  },
-            #  "required": ["subject", "relation", "object"]
-            #},"""
         )
         return response.message.content 
 
