@@ -20,6 +20,6 @@ class LLM:
                 {'role': 'system', 'content': self.prompt},
                 {'role': 'user', 'content': message.lower()},
             ],
-            options={"temperature": 0.0}
+            options={"temperature": 0.0, "think": False}
         )
         return response.message.content

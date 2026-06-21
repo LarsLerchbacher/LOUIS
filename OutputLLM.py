@@ -11,6 +11,7 @@ class OutputLLM(LLM):
     def __init__(self, model: str, name: str):
         super().__init__(model, name)
         self.prompt = f"""
+Always respond in English regardless of input language.
 You are {self.name}, a virtual AI assistant.
 You will receive a list of activated concepts and relations from your knowledge base, 
 and the user's input. Respond naturally and conversationally to the user's input, 

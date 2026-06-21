@@ -10,16 +10,12 @@ import sqlite3
 from Node import Node
 from Model import Model
 from Relation import Relation
-from pyvis.network import Network
 
 global model, input_llm, output_llm, learn_llm
 
 
 def main() -> None:
     global model, input_llm, output_llm, learn_llm
-    model = Model("test", False)
-    input_llm = InputLLM("qwen3:14b-q4_K_M", model.name)
-    output_llm = OutputLLM("qwen3:14b-q4_K_M", model.name)
 
     message = input("> ")
     while message != "/exit":
@@ -40,46 +36,32 @@ def turn(message: str) -> str:
                 obj_node = model.get_node(rel.get_obj())
                 
                 rel_text = f"{rel.get_subj()} --> {rel.get_name()} --> {rel.get_obj()} ({rel.get_rel_type()})" 
-                if rel_text not in output_relations:
+                if rel_text not in output_relations and (subj_node in output_nodes and obj_node in output_nodes):
                     output_relations.add(rel_text)
 
         context = (
             f"Activated concepts: {[n.get_name() for n in output_nodes]}\n"
             f"Relations between concepts: {output_relations}\n"
-            f"Unknown conecpts: {[n for n in model.nodes if not model.get_node(n).get_known()]}\n"
+            #f"Unknown conecpts: {[n for n in model.nodes if not model.get_node(n).get_known()]}\n"
             f"User: {message}\n"
         )
         model.log(context)
         response = output_llm.send(context)
+        model.generate_graph_view()
         return response
+    else:
+        return "=====>>> The program ran into an error while processing your request. Please check the logs for more details! <<<====="
 
-def generate_graph_view(db_path, output="graph.html", limit=500):
-    net = Network(height="900px", width="100%", directed=True)
-    
-    conn = sqlite3.connect(db_path)
-    
-    nodes = conn.execute(
-        "SELECT name, activation FROM nodes ORDER BY activation DESC LIMIT ?", 
-        (limit,)
-    ).fetchall()
-    
-    edges = conn.execute(
-        """SELECT e.subj, e.name, e.obj, e.weight 
-           FROM relations e
-           WHERE e.subj IN (SELECT name FROM nodes ORDER BY activation DESC LIMIT ?)
-           AND e.obj IN (SELECT name FROM nodes ORDER BY activation DESC LIMIT ?)""",
-        (limit, limit)
-    ).fetchall()
-    
-    for name, activation in nodes:
-        net.add_node(name, label=name, title=f"activation: {activation}")
-    
-    for src, relation, tgt, weight in edges:
-        net.add_edge(src, tgt, label=relation, title=f"weight: {weight:.3f}")
-    
-    net.show(output, notebook=False)
+
 
 if __name__ == "__main__":
+    global model, input_llm, output_llm, learn_llm
+    model = Model("test", False)
+    #input_llm = InputLLM("qwen3:14b-q4_K_M", model.name)
+    input_llm = InputLLM("lfm2.5", model.name)
+    #output_llm = OutputLLM("qwen3:14b-q4_K_M", model.name)
+    output_llm = OutputLLM("lfm2.5", model.name)
+
     parser = argparse.ArgumentParser(
         prog="louis",
         description="L.O.U.I.S. project CLI. A program to interact with LOUIS based AI models",
@@ -99,4 +81,5 @@ if __name__ == "__main__":
     if args.command == "chat":
         main()
     elif args.command == "graph":
-        generate_graph_view("database.sqlite")
+        model.generate_graph_view()
+        os.open("graph.html")

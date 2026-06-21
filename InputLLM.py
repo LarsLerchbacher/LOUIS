@@ -12,6 +12,7 @@ class InputLLM(LLM):
     def __init__(self, model: str, name: str):
         super().__init__(model, name)
         self.prompt = f"""
+Always respond in English regardless of input language.
 You are the input parser for a virtual AI named '{self.name}'.
 You will receive raw text spoken to the AI. Your job is to extract structured meaning from ANY input, including statements, questions, exclamations, and single words.
 
@@ -99,7 +100,7 @@ NEVER output anything other than the JSON list above. No notes, no explanations,
                 {'role': 'system', 'content': self.prompt},
                 {'role': 'user', 'content': "Input: " + message.lower()},
             ],
-            options={"temperature": 0.0},
+            options={"temperature": 0.0, "think": False},
             format={
               "type": "object",
               "properties": {

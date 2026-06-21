@@ -3,11 +3,12 @@ import logging
 import hashlib
 import os
 import sqlite3
+import traceback
 from datetime import datetime
 from Node import Node
 from Relation import Relation
 from pathlib import Path
-
+from pyvis.network import Network
 
 class Model:
     """The core cognitive model — manages nodes, relations, activation spreading, and persistence.
@@ -23,11 +24,12 @@ class Model:
         self.fired_nodes = []
         self.stack = set()
         self.threshold = 0.5
+        self.hop_limit = 1
 
         self.setup_logging()
         self.setup_db()
 
-        self.discover()
+        #self.discover()
         self.update_known()
         self.decay_relations()
         self.reduce_activation()
@@ -173,7 +175,6 @@ class Model:
 
         return result
 
-    
     def get_parent_node(self, node: Node) -> Node | None:
         """Walk direct is_a relations to find the parent (superclass) node."""
         name = node.get_name()
@@ -181,7 +182,10 @@ class Model:
             "SELECT subj, obj FROM relations WHERE type == 'is_a' AND (subj == ? OR obj == ?);",
             (name, name)
         ).fetchall()
-        for subj, obj in results:
+        for row in results:
+            model.warn(f"Unpacking: {row}")
+            subj = row[0]
+            obj = row[1]
             parent_name = obj if subj == name else subj
             return self.get_node(parent_name)
         return None
@@ -228,11 +232,15 @@ class Model:
                 node.add_relation(rel)
             self.nodes[node.get_name()] = node
             
-
     def get_node(self, name: str) -> Node:
         """Retrieve a node by name, creating it if it doesn't exist."""
+        query_result = self.cursor.execute("SELECT * FROM nodes WHERE name == ?;", (name,)).fetchone()
         if name in self.nodes:
             return self.nodes[name]
+        elif query_result != None:
+            node = Node.fromJSON({"name": query_result[0], "known": query_result[1] == "True", "confidence": query_result[2], "activation": query_result[3], "relations": []})
+            self.nodes[name] = node
+            return node
         self.warn(f"Node '{name}' not found, creating new node.")
         return self.add_node(name)
 
@@ -258,12 +266,13 @@ class Model:
 
     def reduce_activation(self) -> None:
         """Dampen all node activations to 20% of their current value."""
-        for name in self.nodes:
-            node = self.get_node(name)
-            node.set_activation(node.get_activation() * 0.6)
-            self.save_node(node.get_name())
+        """for name in self.cursor.execute("SELECT name FROM nodes;").fetchall():
+            node = self.get_node(name[0])
+            #node.set_activation(node.get_activation() * 0.3)
+            node.set_activation(0.0)
+            self.save_node(node.get_name())"""
+        self.cursor.execute("UPDATE nodes SET activation = 0;")
 
-    
     def save_relation(self, rel: Relation) -> None:
         """Persist a relation's weight and last_fired to DB, sync to Node's in-memory list, then write markdown."""
         try:
@@ -302,8 +311,11 @@ class Model:
     def get_relation_by_id(self, relation_id: int) -> Relation:
         """Retrieve a relation by its database ID."""
         raw = self.cursor.execute("SELECT * FROM relations WHERE id == ?;", (relation_id,)).fetchone()
+        self.log(f"Raw relation data for ID {relation_id}: {raw}")  # Debugging line
         if raw is None:
             raise ValueError(f"Relation with id {relation_id} not found.")
+        if len(raw) < 8:
+            raise ValueError(f"Invalid relation data for id {relation_id}. Expected 8 columns, got {len(raw)}.")
         data = {
             "subj": raw[1], "name": raw[2], "obj": raw[3], "weight": raw[4],
             "type": raw[5], "last_fired": datetime.fromisoformat(raw[6]),
@@ -336,13 +348,8 @@ class Model:
         self.get_node(subj).add_relation(rel)
         self.save_relation(rel)
         
-
     def add_activation(self, name: str, activation_amount: float, erase: bool = True):
         """Spread activation energy through the network via relations.
-
-        Starts from a named node, walks activating/inhibiting connections,
-        and strengthens or weakens direct relations based on whether their
-        targets reach threshold.
 
         Args:
             name: Starting node name.
@@ -352,11 +359,14 @@ class Model:
         if erase:
             self.stack = set()
 
-        self.stack.add((name, activation_amount))
+        self.stack.add((name, activation_amount, 0))
         processed_nodes = set()
 
         while self.stack:
-            current_name, current_act = self.stack.pop()
+            current_name, current_act, current_hop = self.stack.pop()
+
+            if current_hop > self.hop_limit:
+                continue
 
             if current_name in processed_nodes:
                 continue
@@ -364,6 +374,8 @@ class Model:
 
             node = self.get_node(current_name)
             node.set_activation(node.get_activation() + current_act)
+
+            self.log(f"Node: {current_name}, Activation: {node.get_activation()}")
 
             if node.get_activation() >= self.threshold:
                 self.direct_keys = {
@@ -373,15 +385,17 @@ class Model:
 
                 self.seen_relations = set()
                 for rel in self.get_relations(node):
-                    self.strengthen_relation(node, rel)
+                    self.strengthen_relation(node, rel, current_hop)
 
-                node.set_activation(node.get_activation() * 0.8)
                 self.save_node(current_name)
 
-    def strengthen_relation(self, node: Node, rel: Relation) -> None:
+    def strengthen_relation(self, node: Node, rel: Relation, current_hop: int) -> None:
         """Propagate activation through a relation and optionally strengthen/weaken it.
 
-        Inherited relations propagate activation but are never strengthened.
+        Args:
+            node: The source node.
+            rel: The relation to propagate through.
+            current_hop: Current hop count.
         """
         rel_key = (rel.get_subj(), rel.get_name(), rel.get_obj())
         if rel_key in self.seen_relations:
@@ -400,7 +414,7 @@ class Model:
         else:
             target_act = round(node.get_activation() * rel.get_weight() * -1, 4)
 
-        self.stack.add((target_name, target_act))
+        self.stack.add((target_name, target_act, current_hop + 1))
 
         if not is_inherited:
             target = self.get_node(target_name)
@@ -418,35 +432,39 @@ class Model:
     def get_output(self) -> list[Node]:
         """Return the top 25 most activated nodes (activation > 0.6), sorted descending."""
         rows = self.cursor.execute(
-            "SELECT name FROM nodes WHERE activation > 0.6 ORDER BY activation DESC LIMIT 25;"
+            "SELECT name FROM nodes WHERE activation > 0.5 ORDER BY activation DESC LIMIT 10;"
         ).fetchall()
         return [self.get_node(row[0]) for row in rows]
 
     def feed_input(self, subj: str, rel: str, obj: str, rel_type: str = "ACTIVATES") -> None:
         """Inject an input triple into the model and activate related nodes."""
-        self.reduce_activation()
+        self.warn("Feeding input...")
+        #self.reduce_activation()
 
         subj = subj.lower().strip()
         rel = rel.lower().strip()
         obj = obj.lower().strip()
         rel_type = rel_type.upper().strip()
 
-        self.stack.add((subj, 1.0))
-        self.stack.add((rel, 1.0))
+        self.stack.add((subj, 1.0, 0))
+        self.stack.add((rel, 1.0, 0))
         self.add_activation(obj, 1.0, False)
+        self.nodes[subj].set_activation(1.0)
+        self.nodes[obj].set_activation(1.0)
 
         row = self.cursor.execute(
             "SELECT id FROM relations WHERE subj = ? AND name = ? AND obj = ? AND type = ?;",
             (subj, rel, obj, rel_type)
         ).fetchone()
 
-        if row is None:
+        self.log(f"Row: {row}")
+        if row == None:
             self.add_relation(subj, rel, obj, rel_type)
             relation_id = self.cursor.lastrowid
         else:
             relation_id = row[0]
 
-        self.strengthen_relation(self.get_node(subj), self.get_relation_by_id(relation_id))
+        self.strengthen_relation(self.get_node(subj), self.get_relation_by_id(relation_id), 0)
         self.update_known()
 
     def parse_json(self, data: str) -> int:
@@ -457,41 +475,35 @@ class Model:
         self.log(data)
         
         try:
-            """if len(data.split("}")) <= 1:
-                parsed = json.loads(data)
-            else:
-                parsed = [json.loads(s + "}") for s in data.split("}") if s.strip()]"""
             parsed = json.loads(data)
             if isinstance(parsed, dict):
                 parsed = [parsed] 
-            self.warn(parsed)
             for entry in parsed:
                 for mod in entry.get("modifiers", []):
-                    if mod not in (entry["subject"], entry["action"], entry["object"]):
+                    if mod not in (entry.get("subject", ""), entry.get("action", ""), entry.get("object", "")):
                         self.stack.add((mod.lower(), 0.5))
                 for token in entry.get("tokens", []):
-                    if token not in (entry["subject"], entry["action"], entry["object"]):
+                    if token not in (entry.get("subject", ""), entry.get("action", ""), entry.get("object", "")):
                         self.stack.add((token.lower(), 0.3))
             
                 match entry.get("intent", "statement"):
                     case "statement":
-                        self.feed_input(entry["subject"].lower(), entry["action"].lower(), entry["object"].lower(), entry["effect"].upper())
+                        self.feed_input(entry.get("subject", "").lower(), entry.get("action", "").lower(), entry.get("object", "").lower(), entry.get("effect", "ACTIVATE").upper())
                     case "question":
-                        self.add_activation(entry["subject"], 1.0)
+                        self.add_activation(entry.get("subject", ""), 1.0)
                     case "exclamation":
-                        self.add_activation(entry["subject"], 1.0)
-
+                        self.add_activation(entry.get("subject", ""), 1.0)
 
         except Exception as e:
-            self.err(f"Failed to parse JSON - {e}")
+            self.err(f"Failed to parse JSON - {e}\n{traceback.format_exc()}")
             return -1
         
         return 0
 
     def update_known(self) -> None:
         for node_name in self.nodes:
+            node = self.get_node(node_name)
             if not node_name in ["is_a", "causes", "has", "has_property", "is_for", "inhibits"]:
-                node = self.get_node(node_name)
                 if len(self.get_relations(node)) > 0:
                     node.set_known(True)
                 else:
@@ -502,3 +514,28 @@ class Model:
                 node.set_confidence(1.0)
 
             self.save_node(node_name)
+
+    def generate_graph_view(self, limit=2000):
+        net = Network(height="900px", width="100%", directed=True,  bgcolor = "#222222", font_color = "white", select_menu=True, filter_menu=True)
+        
+        nodes = self.cursor.execute(
+            "SELECT name, activation FROM nodes ORDER BY activation DESC LIMIT ?", 
+            (limit,)
+        ).fetchall()
+        
+        edges = self.cursor.execute(
+            """SELECT e.subj, e.name, e.obj, e.weight 
+               FROM relations e
+               WHERE e.subj IN (SELECT name FROM nodes ORDER BY activation DESC LIMIT ?)
+               AND e.obj IN (SELECT name FROM nodes ORDER BY activation DESC LIMIT ?)""",
+            (limit, limit)
+        ).fetchall()
+        
+        for name, activation in nodes:
+            net.add_node(name, label=name, title=f"activation: {activation}")
+        
+        for src, relation, tgt, weight in edges:
+            net.add_edge(src, tgt, label=relation, title=f"weight: {weight:.3f}")
+        
+        net.save_graph("graph.html")
+
