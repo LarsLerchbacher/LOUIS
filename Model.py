@@ -82,12 +82,6 @@ class Model:
             last_fired VARCHAR(20),
             last_decayed VARCHAR(20)
         );""")
-        
-        self.cursor.execute("""CREATE TABLE IF NOT EXISTS files(
-            path VARCHAR(100) NOT NULL,
-            last_modified VARCHAR(20),
-            checksum VARCHAR(50) NOT NULL
-        );""")
     
     def log(self, text: str) -> None:
         """Log an informational debug message."""
@@ -183,7 +177,6 @@ class Model:
             (name, name)
         ).fetchall()
         for row in results:
-            model.warn(f"Unpacking: {row}")
             subj = row[0]
             obj = row[1]
             parent_name = obj if subj == name else subj
@@ -311,7 +304,6 @@ class Model:
     def get_relation_by_id(self, relation_id: int) -> Relation:
         """Retrieve a relation by its database ID."""
         raw = self.cursor.execute("SELECT * FROM relations WHERE id == ?;", (relation_id,)).fetchone()
-        self.log(f"Raw relation data for ID {relation_id}: {raw}")  # Debugging line
         if raw is None:
             raise ValueError(f"Relation with id {relation_id} not found.")
         if len(raw) < 8:
@@ -375,8 +367,6 @@ class Model:
             node = self.get_node(current_name)
             node.set_activation(node.get_activation() + current_act)
 
-            self.log(f"Node: {current_name}, Activation: {node.get_activation()}")
-
             if node.get_activation() >= self.threshold:
                 self.direct_keys = {
                     (rel.get_subj(), rel.get_name(), rel.get_obj())
@@ -438,7 +428,7 @@ class Model:
 
     def feed_input(self, subj: str, rel: str, obj: str, rel_type: str = "ACTIVATES") -> None:
         """Inject an input triple into the model and activate related nodes."""
-        self.warn("Feeding input...")
+        self.info("Feeding input...")
         #self.reduce_activation()
 
         subj = subj.lower().strip()
@@ -457,7 +447,6 @@ class Model:
             (subj, rel, obj, rel_type)
         ).fetchone()
 
-        self.log(f"Row: {row}")
         if row == None:
             self.add_relation(subj, rel, obj, rel_type)
             relation_id = self.cursor.lastrowid
@@ -479,21 +468,11 @@ class Model:
             if isinstance(parsed, dict):
                 parsed = [parsed] 
             for entry in parsed:
-                for mod in entry.get("modifiers", []):
-                    if mod not in (entry.get("subject", ""), entry.get("action", ""), entry.get("object", "")):
-                        self.stack.add((mod.lower(), 0.5))
-                for token in entry.get("tokens", []):
-                    if token not in (entry.get("subject", ""), entry.get("action", ""), entry.get("object", "")):
-                        self.stack.add((token.lower(), 0.3))
-            
-                match entry.get("intent", "statement"):
-                    case "statement":
-                        self.feed_input(entry.get("subject", "").lower(), entry.get("action", "").lower(), entry.get("object", "").lower(), entry.get("effect", "ACTIVATE").upper())
-                    case "question":
-                        self.add_activation(entry.get("subject", ""), 1.0)
-                    case "exclamation":
-                        self.add_activation(entry.get("subject", ""), 1.0)
-
+                self.feed_input(
+                    entry.get("subject", "").lower(),
+                    entry.get("relation", "").lower(),
+                    entry.get("object", "").lower()
+                )
         except Exception as e:
             self.err(f"Failed to parse JSON - {e}\n{traceback.format_exc()}")
             return -1

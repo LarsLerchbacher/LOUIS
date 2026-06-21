@@ -10,12 +10,13 @@ import sqlite3
 from Node import Node
 from Model import Model
 from Relation import Relation
+from NormalizerLLM import NormalizerLLM
 
-global model, input_llm, output_llm, learn_llm
+global model, input_llm, output_llm, learn_llm, normalizer_llm
 
 
 def main() -> None:
-    global model, input_llm, output_llm, learn_llm
+    global model, input_llm, output_llm, learn_llm, normalizer_llm
 
     message = input("> ")
     while message != "/exit":
@@ -24,9 +25,16 @@ def main() -> None:
         message = input("> ")
 
 def turn(message: str) -> str:
-    global model, input_llm, output_llm, learn_llm
+    global model, input_llm, output_llm, learn_llm, normalizer_llm
 
-    if model.parse_json(input_llm.send(message)) == 0:
+    # Step 1: Extract raw facts using InputLLM
+    raw_facts = input_llm.send(message)
+    
+    # Step 2: Normalize the extracted facts using NormalizerLLM
+    normalized_facts = normalizer_llm.send(raw_facts)
+    
+    # Step 3: Parse and feed the normalized facts into the model
+    if model.parse_json(normalized_facts) == 0:
         output_nodes = model.get_output()
 
         output_relations = set()
@@ -40,14 +48,14 @@ def turn(message: str) -> str:
                     output_relations.add(rel_text)
 
         context = (
-            f"Activated concepts: {[n.get_name() for n in output_nodes]}\n"
-            f"Relations between concepts: {output_relations}\n"
-            #f"Unknown conecpts: {[n for n in model.nodes if not model.get_node(n).get_known()]}\n"
+            f"Nodes: {[n.get_name() for n in output_nodes]}\n"
+            f"Relations: {output_relations}\n"
             f"User: {message}\n"
         )
         model.log(context)
         response = output_llm.send(context)
         model.generate_graph_view()
+        print(context)
         return response
     else:
         return "=====>>> The program ran into an error while processing your request. Please check the logs for more details! <<<====="
@@ -55,11 +63,10 @@ def turn(message: str) -> str:
 
 
 if __name__ == "__main__":
-    global model, input_llm, output_llm, learn_llm
-    model = Model("test", False)
-    #input_llm = InputLLM("qwen3:14b-q4_K_M", model.name)
+    global model, input_llm, output_llm, learn_llm, normalizer_llm
+    model = Model("test", True)
     input_llm = InputLLM("lfm2.5", model.name)
-    #output_llm = OutputLLM("qwen3:14b-q4_K_M", model.name)
+    normalizer_llm = NormalizerLLM("lfm2.5", model.name)
     output_llm = OutputLLM("lfm2.5", model.name)
 
     parser = argparse.ArgumentParser(

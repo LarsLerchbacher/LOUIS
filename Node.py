@@ -63,11 +63,11 @@ class Node:
         """Append a relation to this node's list."""
         self.relations.append(rel)
 
-    def render_relations(self) -> str:
+    def render_relations_markdown(self) -> str:
         """Return all relations as a markdown table rows string."""
         return "\n".join(str(rel) for rel in self.relations) + "\n" if self.relations else ""
 
-    def __str__(self) -> str:
+    def exportMarkdown(self) -> str:
         header = (
             f"# {self.name}\n\n"
             f"Known: {self.known}\n"
@@ -77,6 +77,9 @@ class Node:
             f"|Relation|Target|Weight|Type|Last Activated|Last Decayed|\n"
             f"|---|---|---|---|---|---|\n"
         )
-        return header + self.render_relations()
+        return header + self.render_relations_markdown()
+
+    def __str__(self) -> str:
+       return f"{self.name} ({self.confidence} confidence)"
 
 

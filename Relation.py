@@ -78,5 +78,8 @@ class Relation:
     def set_last_decayed(self, last_decayed: datetime) -> None:
         self.last_decayed = last_decayed
 
-    def __str__(self) -> str:
+    def render_markdown(self) -> str:
         return f"|{self.name}|[[{self.obj}]]|{self.weight}|{self.rel_type}|{self.last_fired}|{self.last_decayed}|"
+    
+    def __str__(self) -> str:
+        return f"{self.subj} {self.name} {self.obj} (subj {self.rel_type}S obj)"
