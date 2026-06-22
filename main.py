@@ -67,13 +67,26 @@ def chat() -> None:
             }
         },
         {
-            "name": "memory_write", "description": "Store memory in your long term memory. Use this tool, whenever you learned new information that is worth keeping across sessions.",
+            "name": "memory_write", "description": "Store memory in your long term memory. Use this tool, whenever you learned new information that is worth keeping across sessions. This tool only ADDS information. It never EDITS or DELETES information. Use the memory_delete tool for those actions (delete and add new for editing)",
             "parameters": {
                 "type": "object",
                 "properties": {
-                    "text": { "type": "string", "description": "The facts to store. Only store facts (statements), never questions or exclamations."},
+                    "text": { "type": "string", "description": "The facts to store. Only store facts (statements), never questions or exclamations. PHRASE THE FACTS EXTREMLY SIMPLE AND ONE PER SENTENCE IF POSSIBLE!"},
                 },
                 "required": ["text"]
+            }
+        },
+        {
+            "name": "memory_write", "description": "Remove wrong/old nodes or relations from memory. TREAT WITH EXTREM CAUTION! THIS IS AN IRREVERSIBLE ACTION!",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "mode": { "type": "string", "description": "The type of object to delete. Can either be NODE or RELATION"},
+                    "subj": { "type": "string", "description": "Either the name of the node to delete (if deleting a node) or the subject of the relation to delete."},
+                    "rel": { "type": "string", "description": "The name (kind) of the relation to delete (is_a for example)"},
+                    "obj": { "type": "string", "description": "The object of the relation to delte"},
+                },
+                "required": ["mode", "subj"]
             }
         }
         
@@ -84,8 +97,13 @@ def chat() -> None:
     funcs = {
         "message": send_message,
         "memory_get": memory_get,
-        "memory_write": memory_write
+        "memory_write": memory_write,
+        "memory_delete": memory_delete
     }
+    
+    if len(funcs) != len(tools):
+        logger.error("YOU FORGOT TO ADD A NEW TOOL TO THE FUNCS MAP AGAIN! REMEMBER IT ALREADY!")
+        quit(1)
     
     askUser = True
 
@@ -136,6 +154,22 @@ def memory_write(text: str) -> str:
     global graph
     graph.write(text)
     return "Successfully wrote to memory"
+
+def memory_delete(mode: str = "node", subj: str = "", rel: str = None, obj: str = None):
+    global graph
+    if mode == "NODE":
+        graph.cursor.execute("DELETE FROM nodes WHERE name == ?;", (subj,))
+        graph.db.commit()
+        return f"Deleted '{subj}'"
+    elif mode == "RELATION":
+        if not subj or not rel or not obj:
+            return "ERROR: One of the required parameters for relation deletion (subj, rel, obj) was not provided! Please try again with all correct parameters."
+
+        graph.cursor.execute("DELETE FROM relations WHERE subj == ? AND name == ? AND obj == ?;", (subj, rel, obj))
+        graph.db.commit()
+        return "Deleted relation"
+    else:
+        return "Unknown deletion mode"
 
 def setup_logging(debug: bool = False):
     global logger
