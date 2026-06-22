@@ -355,7 +355,7 @@ class Model:
         self.get_node(subj).add_relation(rel)
         self.save_relation(rel)
         
-    def add_activation(self, name: str, activation_amount: float, erase: bool = True, intent: str = "UNKNOWN"):
+    def add_activation(self, name: str, activation_amount: float, erase: bool = True, intent: str = "DEFAULT"):
         """Spread activation energy through the network via relations based on intent.
 
         Args:
@@ -458,7 +458,7 @@ class Model:
         ).fetchall()
         return [self.get_node(row[0]) for row in rows]
 
-    def feed_input(self, subj: str, rel: str, obj: str, intent: str = "UNKNOWN") -> None:
+    def feed_input(self, subj: str, rel: str, obj: str, intent: str = "DEFAULT") -> None:
         #self.reduce_activation()
 
         subj = subj.lower().strip()
@@ -563,7 +563,7 @@ class Model:
         if "related" in ql or "relation" in ql:
             return "RELATE"
 
-        return "UNKNOWN" 
+        return "DEFAULT" 
 
     def query(self, text: str):
         text = text.lower()
