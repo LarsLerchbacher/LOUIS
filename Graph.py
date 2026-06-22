@@ -125,7 +125,7 @@ class Graph:
             discount = 0.8 ** hop
             parent_rels = self.get_direct_relations(parent)
             for rel in parent_rels:
-                if rel.get_rel_name() == "is_a":
+                if rel.get_name() == "is_a":
                     continue
                 inherited_rel = Relation(
                     rel.get_subj(), rel.get_name(), rel.get_obj(),
@@ -157,7 +157,7 @@ class Graph:
             node = Node.fromJSON({"name": query_result[0], "known": query_result[1] == "True", "confidence": query_result[2], "activation": query_result[3], "relations": []})
             self.nodes[name] = node
             return node
-        self.warn(f"Node '{name}' not found, creating new node.")
+        self.log(f"Node '{name}' not found, creating new node.")
         return self.add_node(name)
 
     def add_node(self, name: str) -> Node:
@@ -242,7 +242,7 @@ class Graph:
         """Return only direct (non-inherited) relations for a node from the database."""
         name = node.get_name()
         results = self.cursor.execute(
-            "SELECT id FROM relations WHERE subj == ? OR obj == ?;", (name, name)
+            "SELECT id FROM relations WHERE subj == ? OR obj == ? ORDER BY weight DESC;", (name, name)
         ).fetchall()
         return [self.get_relation_by_id(row[0]) for row in results]
 
@@ -362,7 +362,7 @@ class Graph:
     def get_output(self) -> list[Node]:
         """Return the top 25 most activated nodes (activation > 0.6), sorted descending."""
         rows = self.cursor.execute(
-            "SELECT name FROM nodes WHERE activation > 0.5 ORDER BY activation DESC LIMIT 10;"
+            "SELECT name FROM nodes WHERE activation >= 0.5 ORDER BY activation DESC LIMIT 10;"
         ).fetchall()
         return [self.get_node(row[0]) for row in rows]
 
@@ -473,10 +473,11 @@ class Graph:
 
         return "DEFAULT" 
 
-    def query(self, text: str):
+    def query(self, text: str, intent: str = None):
         text = text.lower()
         
-        intent = self.parse_intent(text)
+        if intent == None:
+            intent = self.parse_intent(text)
         nodes = self.parse_nodes(text)
         
         self.log(f"Detected {intent} intent.")
@@ -496,10 +497,8 @@ class Graph:
         
         names = []
         for chunk in doc.noun_chunks:
-            names.extend([token.lemma_ for token in chunk if token.pos_ in ("NOUN", "PROPN")])
+            names.extend([token.text if token.ent_type_ or token.pos_ in ("PROPN", "NOUN") else token.lemma_  for token in doc])
         
-        self.warn(names)
-
         for word in names:
             for node in self.cursor.execute("SELECT name FROM nodes WHERE name == ?;", (word,)).fetchall():
                 nodes.append(node[0]) 
@@ -516,23 +515,26 @@ class Graph:
             nodes = []
             
             for token in sentence:
-                nodes.append(token.lemma_)
+                nodes.append(token.lemma_ if token.pos_ not in ("PROPN", "NOUN") and not token.ent_type_ else token.text)
 
             json_data = InputLLM(self.config.get_value("graph-model"), self.config.get_value("mistral_api_key")).send(f"Source Text: {sentence}\nLemmatized words: {nodes}")
             self.log(f"Extracted relations: {json_data}")
             self.parse_json(json_data)
+        
+        self.generate_graph_view()
 
     def generate_context(self) -> str:
         output_nodes = self.get_output()
 
         output_relations = set()
         for node in output_nodes:
-            for rel in self.get_relations(node):
+            relations = sorted(self.get_relations(node), key=lambda x: x.get_weight(), reverse=True) if self.get_relations(node) else []
+            for rel in relations:
                 subj_node = self.get_node(rel.get_subj())
                 obj_node = self.get_node(rel.get_obj())
                 
                 rel_text = f"{rel.get_subj()} --> {rel.get_name()} --> {rel.get_obj()}"
-                if rel_text not in output_relations and rel.get_weight() > 0.5:
+                if rel_text not in output_relations and rel.get_weight():
                     output_relations.add(rel_text)
                     
                 if len(output_relations) == 10:

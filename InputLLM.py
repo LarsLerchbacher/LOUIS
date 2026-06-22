@@ -47,6 +47,12 @@ RULES:
 
 10. Do NOT summarize the sentence.
 
+LIST RULES
+
+NEVER use conjunctions (and, or, but) as relation names.
+Consolidate list items — "a classmate and friend" means two separate is_a relations, 
+not a chain through "and".
+
 PRONOUN RESOLUTION RULE:
 
 If a token is a pronoun (e.g. he, she, him, her, they, it), attempt to resolve it using ONLY other tokens in the same sentence.
@@ -56,6 +62,15 @@ If multiple candidates exist, choose the most recent valid subject.
 If no valid resolution exists, DO NOT use the pronoun in output (skip that triple).
 Do NOT introduce external knowledge.
 Do NOT resolve pronouns beyond the current sentence context.
+
+PREPOSITION RULES
+
+When a relation contains a preposition (friend OF, part OF, member OF), 
+fold the preposition into the relation name:
+"is a friend of" → is_friend_of
+"is a part of" → is_part_of
+"is a member of" → is_member_of
+Never use bare prepositions (of, for, in) as standalone relation names.
 
 OUTPUT FORMAT:
 [

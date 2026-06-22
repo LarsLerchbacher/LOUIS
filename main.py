@@ -45,7 +45,7 @@ def chat() -> None:
     
     tools = [ 
         {
-        "name": "message", "description": "send a message to the user",
+            "name": "message", "description": "send a message to the user",
             "parameters": {
                 "type": "object", 
                 "properties": {
@@ -54,37 +54,66 @@ def chat() -> None:
                 },
                 "required": ["content", "waitForUser"]
             }
+        },
+        {
+            "name": "memory_get", "description": "retrieve knowledge from your memory",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "text": { "type": "string", "description": "The term to search for"},
+                    "intent": { "type": "string", "description": "The retrival mode (changes search behaviour in the memory). Can be WHO, WHAT, HOW, WHY or RELATE. Is optional."}
+                },
+                "required": ["text"]
+            }
+        },
+        {
+            "name": "memory_write", "description": "Store memory in your long term memory. Use this tool, whenever you learned new information that is worth keeping across sessions.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "text": { "type": "string", "description": "The facts to store. Only store facts (statements), never questions or exclamations."},
+                },
+                "required": ["text"]
+            }
         }
+        
     ]
 
     agentLLM = AgentLLM(config.get_value("chat-model"), config, tools)
 
-    funcs = {"message": send_message}
+    funcs = {
+        "message": send_message,
+        "memory_get": memory_get,
+        "memory_write": memory_write
+    }
     
     askUser = True
 
     while True:
         
         if askUser:
+            print("-" * 50)
             message = input("> ")
+            print("-" * 50)
+            print()
 
-            if message[0] == "/":
-                if message == "/exit":
-                    break
-                # place for more commands
-                else:
-                    print(f"WRONG SLASH COMMAND '{message}'")
+            if message == "/exit":
+                break
             
-            waitForUser = False
+            askUser = False
         else:
-            message = ""
+            message = "Tool results are in. (Auto generated message, do not respond to this, just process your tool results)"
     
         response = agentLLM.send(message)
         
         if response.choices[0].message.tool_calls:
             tool_calls = response.choices[0].message.tool_calls
             for call in tool_calls:
-                response = funcs[call.function.name](**json.loads(call.function.arguments))
+                try:
+                    response = funcs[call.function.name](**json.loads(call.function.arguments))
+                except KeyError:
+                    response = "Tool not found!"
+
                 agentLLM.messages.append({
                     "role": "tool",
                     "tool_call_id": call.id,
@@ -92,11 +121,21 @@ def chat() -> None:
                     "content": response
                 })
 
-def send_message(content: str, waitForUser: bool):
+def send_message(content: str, waitForUser: bool = False) -> str:
     global askUser 
     askUser = waitForUser 
     print(content)
     return "delivered"
+
+def memory_get(text: str, intent: str = None) -> str:
+    global graph
+    graph.query(text, intent)
+    return graph.generate_context()
+
+def memory_write(text: str) -> str:
+    global graph
+    graph.write(text)
+    return "Successfully wrote to memory"
 
 def setup_logging(debug: bool = False):
     global logger
