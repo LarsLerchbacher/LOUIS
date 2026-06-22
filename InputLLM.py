@@ -1,4 +1,4 @@
-from ollama import chat, ChatResponse
+from mistralai.client import Mistral
 
 class InputLLM():
     """Parses natural language input into structured JSON relations for the model.
@@ -7,7 +7,7 @@ class InputLLM():
     lemmatize verbs, and output JSON suitable for Model.parseJSON().
     """
 
-    def __init__(self, model: str):
+    def __init__(self, model: str, api_key: str):
         self.model = model
         self.prompt = """
 You are a graph extraction system.
@@ -66,17 +66,29 @@ OUTPUT FORMAT:
 }
 ]
 
+Your answer should not be encased in a markdown syntax block!
+
 """ 
+        self.messages = [{"role": "system", "content": self.prompt}]
+        self.client = Mistral(api_key=api_key)
 
     def send(self, message: str) -> str:
         """Send a message to the LLM and return the text response."""
-        response: ChatResponse = chat(
-            model=self.model,
-            messages=[
-                {'role': 'system', 'content': self.prompt},
-                {'role': 'user', 'content': message},
-            ],
-            options={"temperature": 0.0, "think": False}
-        )
-        return response.message.content 
+        self.messages.append({"role": "user", "content": message})
 
+        response = self.client.chat.complete(
+            model=self.model,
+            messages=self.messages,
+            temperature=0.0,
+        )
+
+        # Extract the assistant's message
+        assistant_message = response.choices[0].message
+        
+        # Append the assistant's message to the messages list
+        self.messages.append({
+            "role": "assistant",
+            "content": assistant_message.content,
+        })
+        
+        return assistant_message.content

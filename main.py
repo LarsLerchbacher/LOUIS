@@ -3,6 +3,7 @@ import json
 import os
 import logging
 import sqlite3
+import webbrowser
 
 from AgentLLM import AgentLLM
 from Config import Config
@@ -151,7 +152,7 @@ if __name__ == "__main__":
     if config.load() != 0:
         quit(1)
 
-    graph = Graph(config.get_value("name"), logger, args.verbose)
+    graph = Graph(config.get_value("name"), logger, config, args.verbose)
     
     if args.command == "write":
         write()
@@ -161,7 +162,4 @@ if __name__ == "__main__":
         chat()
     elif args.command == "graph":
         graph.generate_graph_view()
-        os.open("graph.html")
-
-
-
+        webbrowser.open("graph.html")

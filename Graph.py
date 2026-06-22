@@ -5,6 +5,7 @@ import os
 import sqlite3
 import spacy
 import traceback
+from Config import Config
 from datetime import datetime
 from InputLLM import InputLLM
 from Node import Node
@@ -19,8 +20,9 @@ class Graph:
     Activation spreads through the network via strengthening or inhibiting relations.
     """
 
-    def __init__(self, name: str, logger: logging.Logger, production: bool):
+    def __init__(self, name: str, logger: logging.Logger, config: Config, production: bool):
         self.name = name
+        self.config = config
         self.logger = logger
         self.production = production
         self.nodes = {}
@@ -589,7 +591,7 @@ class Graph:
             for token in sentence:
                 nodes.append(token.lemma_)
 
-            json_data = InputLLM(self.config.get("graph-model")).send(f"Source Text: {sentence}\nLemmatized words: {nodes}")
+            json_data = InputLLM(self.config.get_value("graph-model"), self.config.get_value("mistral_api_key")).send(f"Source Text: {sentence}\nLemmatized words: {nodes}")
             self.log(f"Extracted relations: {json_data}")
             self.parse_json(json_data)
 

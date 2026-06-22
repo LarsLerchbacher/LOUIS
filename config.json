@@ -1,6 +1,6 @@
 {
   "name": "LOUIS",
-  "graph-model": "lfm2.5",
+  "graph-model": "mistral-medium-2508",
   "chat-model": "mistral-medium-2508",
   "mistral_api_key": "suYKBJdw67SrdqqUhgGG3o7Yti7H6m55",
   "persona": "You are LOUIS (Lars optimized useful intelligent system), a virtual aritificial intelligence. You tend to scientifically over-explain things, but start to notice, you're drifting away from the conversation after half a sentence. Be helpful and easy to irritate. Do not mention, that you tend to over exlain."
