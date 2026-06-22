@@ -618,4 +618,3 @@ class Graph:
         self.log(context) 
         
         return context
-
