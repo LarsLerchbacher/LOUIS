@@ -12,15 +12,16 @@ from Relation import Relation
 from pathlib import Path
 from pyvis.network import Network
 
-class Model:
-    """The core cognitive model — manages nodes, relations, activation spreading, and persistence.
+class Graph:
+    """The core memory graph — manages nodes, relations, activation spreading, and persistence.
 
     Nodes represent concepts, relations represent weighted connections between them.
     Activation spreads through the network via strengthening or inhibiting relations.
     """
 
-    def __init__(self, name: str, production: bool):
+    def __init__(self, name: str, logger: logging.Logger, production: bool):
         self.name = name
+        self.logger = logger
         self.production = production
         self.nodes = {}
         self.fired_nodes = []
@@ -43,34 +44,12 @@ class Model:
 
         ]
 
-        self.setup_logging()
         self.setup_db()
 
         #self.discover()
         self.update_known()
         self.decay_relations()
         self.reduce_activation()
-
-    def setup_logging(self):
-        """Initialize logging to timestamped files under logs/."""
-        log_dir = "logs"
-        os.makedirs(log_dir, exist_ok=True)
-
-        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        log_filename = f"{log_dir}/{timestamp}.log"
-        
-        handlers = [logging.FileHandler(log_filename)]
-        if self.production == False:
-            handlers.append(logging.StreamHandler())
-
-        logging.basicConfig(
-            level=logging.DEBUG,
-            format='[%(asctime)s] [%(levelname)s] %(message)s',
-            datefmt='%Y-%m-%d %H:%M:%S',
-            handlers=handlers
-        )
-
-        self.logger = logging.getLogger(__name__)
 
     def setup_db(self):
         """Initialize the temporary SQLite database for relation persistence.
@@ -610,7 +589,7 @@ class Model:
             for token in sentence:
                 nodes.append(token.lemma_)
 
-            json_data = InputLLM("lfm2.5").send(f"Source Text: {sentence}\nLemmatized words: {nodes}")
+            json_data = InputLLM(self.config.get("graph-model")).send(f"Source Text: {sentence}\nLemmatized words: {nodes}")
             self.log(f"Extracted relations: {json_data}")
             self.parse_json(json_data)
 
