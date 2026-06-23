@@ -74,7 +74,7 @@ Your user is named {self.config.get_value("username")}
             model=self.model,
             messages=self.messages,
             tools=tools_schema,
-            temperature=0.9,
+            temperature=0.6,
         )
         
         # Extract the assistant's message
