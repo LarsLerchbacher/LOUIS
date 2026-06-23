@@ -15,6 +15,7 @@ Then just run `python main.py chat` to start chatting with your own agent.
 `python main.py query` launches an interactive graph query. Just type a concept, name or question and press enter. You will get exactly what LOUIS sees too.
 `python main.py write` launches and interactive write mode. Type a fact in VERY simple language to write to the graph. The extractor LLM easily misinterprets stuff, so try to stick to one fact per sentence. Facts should be rephrasable to the form: `subj --- relation --> object`. This is what the graph stores internally.
 
+
 ## What makes LOUIS special
 
 Aside from the fact, that it uses a semantic network as its main memory system, LOUIS also features a custom interaction loop:
@@ -71,3 +72,6 @@ The missing Linux support for voice interactions (yes, I can use dictation mode,
 interaction loop. That is why I started to convert LOUIS back into a full-flegged AI assistant. This time, with Mistral API integration, using the graph as a memory backend.
 
 
+## AI work on this project
+
+I used my OpenClaw agent "JARVIS" (yes, very generic, I know) to create two and a half pull requests for this project. The last one, a refactor task, failed during the work on it. I then had to manually clean it up (ok, I also used an AI chat in my IDE to do it, but a lot of work was manual too). 
