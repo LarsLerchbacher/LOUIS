@@ -22,11 +22,14 @@ class Config():
         
         def write(self) -> None:
                 with open("config.json", mode="w") as file:
-                        file.write(str(self.data))
+                        file.write(json.dumps(self.data))
         
         def get_value(self, key: str) -> str:
                 try:
                         return self.data[key]
                 except KeyError:
                         return None
+        
+        def set_value(self, key: str, value: str|int) -> None:
+                self.data[key] = value
                 
