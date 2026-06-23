@@ -67,9 +67,11 @@ def assistant(self, message, *args, **kwargs):
 def tool(self, message, *args, **kwargs):
     self.log(25, message, *args, **kwargs)
     
+
 def safe_json_loads(s):
-    s = s.replace("\n", "\\n")
-    s = re.sub(r"[\x00-\x1f\x7f]", "", s)  # remove control chars
+    """Necesary to avoid problems when the LLM uses newlines"""
+    s = s.replace("\n", "\\n") # Replace actual newlines with python escape sequence
+    s = re.sub(r"[\x00-\x1f\x7f]", "", s)  # remove all other control chars
     return json.loads(s)
 
 def chat() -> None:
@@ -97,69 +99,71 @@ def chat() -> None:
     logging.Logger.assistant = assistant
     logging.Logger.tool = tool
     
-    
     for handler in handlers:
         handler.setFormatter(logging.Formatter("%(message)s\n%(asctime)s - %(levelname)s\n" + "-" * 50))
         session_logger.addHandler(handler)
     
-    
     tools = [ 
         {
-            "name": "message", "description": "send a message to the user",
+            "name": "msg",
+            "description": "Send a message to the user",
             "parameters": {
                 "type": "object", 
                 "properties": {
-                    "content": {"type": "string", "description": "The message content"},
-                    "waitForUser": {"type": "boolean", "description": "Is this a question to the user?"}
+                    "content": {"type": "string"},
+                    "isQuestion": {"type": "boolean"}
                 },
-                "required": ["content", "waitForUser"]
+                "required": ["content"]
             }
         },
         {
-            "name": "memory_get", "description": "retrieve knowledge from your memory",
+            "name": "mem_get",
+            "description": "Retrieve knowledge from memory",
             "parameters": {
                 "type": "object",
                 "properties": {
-                    "text": { "type": "string", "description": "The term to search for"},
-                    "intent": { "type": "string", "description": "WHO, WHAT, HOW, WHY or RELATE. Is optional."}
+                    "subj": {"type": "string"},
+                    "intent": {"type": "string"}
+                },
+                "required": ["subj"]
+            }
+        },
+        {
+            "name": "mem_write",
+            "description": "Store memory in long-term memory",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "text": {"type": "string"}
                 },
                 "required": ["text"]
             }
         },
         {
-            "name": "memory_write", "description": "Store memory in your long term memory.",
+            "name": "mem_del",
+            "description": "Remove nodes or relations from memory",
             "parameters": {
                 "type": "object",
                 "properties": {
-                    "text": { "type": "string", "description": "The facts to store (use extremly simple statements!)"},
-                },
-                "required": ["text"]
-            }
-        },
-        {
-            "name": "memory_delete", "description": "Remove wrong/old nodes or relations from memory. TREAT WITH EXTREM CAUTION! THIS IS AN IRREVERSIBLE ACTION!",
-            "parameters": {
-                "type": "object",
-                "properties": {
-                    "mode": { "type": "string", "description": "NODE or RELATION"},
-                    "subj": { "type": "string", "description": "Name of the node to delete or the subj of the relation to delete"},
-                    "rel": { "type": "string", "description": "The name (kind) of the relation to delete (is_a for example)"},
-                    "obj": { "type": "string", "description": "The object of the relation to delte"},
+                    "mode": {"type": "string"},
+                    "subj": {"type": "string"},
+                    "rel": {"type": "string"},
+                    "obj": {"type": "string"}
                 },
                 "required": ["mode", "subj"]
             }
         },
         {
-            "name": "exec_shell", "description": "Execute a shell command.",
+            "name": "exec",
+            "description": "Execute a shell command",
             "parameters": {
                 "type": "object",
                 "properties": {
-                    "command": { "type": "string", "description": "The shell command to execute"},
+                    "command": {"type": "string"}
                 },
                 "required": ["command"]
             }
         } 
-        
     ]
 
     agentLLM = AgentLLM(config.get_value("chat-model"), config, tools)
@@ -167,11 +171,11 @@ def chat() -> None:
     logger.info(f"System prompt: {agentLLM.prompt}")
 
     funcs = {
-        "message": send_message,
-        "memory_get": memory_get,
-        "memory_write": memory_write,
-        "memory_delete": memory_delete,
-        "exec_shell": exec_shell
+        "msg": send_message,
+        "mem_get": memory_get,
+        "mem_write": memory_write,
+        "mem_del": memory_delete,
+        "exec": exec_shell
     }
     
     if len(funcs) != len(tools):
@@ -182,7 +186,34 @@ def chat() -> None:
 
     while True:
         
-        if askUser:
+        if len(agentLLM.messages) > 100:
+            agentLLM.messages.append({"role": "system", "content": """
+**Summarize the current conversation in 3-5 bullet points.**
+Focus only on **new information, decisions, or unresolved questions** since the last summary.
+Assume the reader already knows the prior context.
+If no meaningful progress was made, state: *“No significant updates since last summary.”*
+
+**Constraints:**
+- Max 5 bullet points.
+- No fluff, no philosophy, no sarcasm (unless critical).
+- Prioritize actionable or contextual details.
+
+**Summary:**"""
+            })
+            response = agentLLM.client.chat.complete(
+                model=agentLLM.model,
+                messages=agentLLM.messages,
+                temperature=0.0,
+            ) 
+
+            resp_text = response.choices[0].message.content  
+            if resp_text != "No significant updates since last summary.":
+                agentLLM.summary += "\n" + resp_text
+            
+            agentLLM.reset(True) 
+        
+        if askUser: 
+
             message = input("> ")
             session_logger.user(message)
 
@@ -214,16 +245,16 @@ def chat() -> None:
                     "role": "tool",
                     "tool_call_id": call.id,
                     "name": call.function.name,
-                    "content": response
+                    "content": str(response)
                 })
                 
-                session_logger.tool(str(call.function.name) + ":\n" + response)
+                session_logger.tool(str(call.function.name) + ":\n" + str(response))
         else:
             askUser = True
 
-def send_message(content: str, waitForUser: bool = False) -> str:
+def send_message(content: str, isQuestion: bool = False) -> str:
     global askUser, session_logger, config
-    askUser = waitForUser 
+    askUser = isQuestion 
     session_logger.assistant(content)
     
     # update stats
@@ -233,9 +264,9 @@ def send_message(content: str, waitForUser: bool = False) -> str:
 
     return "delivered"
 
-def memory_get(text: str, intent: str = None) -> str:
+def memory_get(subj: str, intent: str = None) -> str:
     global graph
-    graph.query(text, intent)
+    graph.query(subj, intent)
     
     # update stats
     old_mem_get_calls = config.get_value("memory_get-calls")
@@ -364,3 +395,4 @@ if __name__ == "__main__":
     elif args.command == "graph":
         graph.generate_graph_view()
         webbrowser.open("graph.html")
+
