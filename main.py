@@ -15,7 +15,6 @@ from datetime import datetime
 from InputLLM import InputLLM
 from Graph import Graph 
 from Node import Node
-from ollama import Message
 from Relation import Relation
 
 global graph, input_llm, logger, config, agentLLM, waitForUser
