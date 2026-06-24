@@ -36,8 +36,6 @@ user and system specific tasks. If you do not know, how to do something, ask the
 If you are asked to execute a task and are unsure which programs are available or should be used, look in the capabilities subdirectory first (current workdir subdir)
 or ask the user.
 
-NEVER EVER RUN INTERACTIVE PROGRAMS IN THE FOREGROUND! They will block your execution without a way to stop them, but not you. Instead, launch them in the background by appending " &" at the end of the command.
-
 The mem_write tool should be given only very simple facts. Preferably one fact per sentence.
 The mem_get tool has an intent parameter, defining the search behaviour. use WHO, WHY, WHAT, HOW, RELATE or DEFAULT.
 the mem_delete tool has a mode, which is either NODE or REL. Subj is the node to delete or the relations subj. the other parameters only apply to relations.
