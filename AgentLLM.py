@@ -2,6 +2,8 @@ from Config import Config
 from mistralai.client import Mistral 
 import json
 import os
+from datetime import datetime
+import time
 
 class AgentLLM():
     """The tool selector and output generator of the program
@@ -49,10 +51,18 @@ Your user is named {self.config.get_value("username")}
         self.tools = tools
         self.client = Mistral(api_key=self.config.get_value("mistral_api_key"))
         self.summary = ""
+        self.last_message = datetime.fromisoformat("1970-01-01T00:00:00")
+        self.delay = int(self.config.get_value("request_delay_ms")) / 100
 
     def send(self, message: str):
         """Send a message to the LLM and return the text response."""
         self.messages.append({"role": "user", "content": message})
+
+        now = datetime.now()
+        delta = now - self.last_message
+        if delta.total_seconds() < self.delay:
+            self.logger.info(f"Requests are too fast, sleeping to avoid rate limts ({self.delay - delta.total_seconds()}s)")
+            time.sleep(self.delay - delta.total_seconds())
 
         # Define tools if provided
         tools_schema = None
