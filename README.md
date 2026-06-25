@@ -10,9 +10,10 @@ LOUIS is an experiment to create a custom token efficient agent, building upon t
 
 You can download it, create a python virtual environment and install the requirements from `requirements.txt`.
 Edit the default config.json file, add your own API key (the included one is invalid, if you're wondering, uploaded it by mistake), set your name, the name of the AI and adjust its personality prompt.
-Then just run `python main.py chat` to start chatting with your own agent.
-`python main.py graph` opens the graph view in the browser (is updated every write, just reload the page)
-`python main.py query` launches an interactive graph query. Just type a concept, name or question and press enter. You will get exactly what LOUIS sees too.
+
+Then just run `python main.py chat` to start chatting with your own agent.<br>
+`python main.py graph` opens the graph view in the browser (is updated every write, just reload the page)<br>
+`python main.py query` launches an interactive graph query. Just type a concept, name or question and press enter. You will get exactly what LOUIS sees too.<br>
 `python main.py write` launches and interactive write mode. Type a fact in VERY simple language to write to the graph. The extractor LLM easily misinterprets stuff, so try to stick to one fact per sentence. Facts should be rephrasable to the form: `subj --- relation --> object`. This is what the graph stores internally.
 
 
@@ -33,7 +34,8 @@ This alone may not be the most uncommon loop. What is uncommon, however are the 
 - mem_get: Querries the memory graph
 - mem_write: Writes facts to the memory
 - mem_delete: Delete wrong/old nodes and relations for memory
-- exec: Execute shell commands
+- exec: Execute a shell command in the background (only one can be active at a time)
+- checkProc: Get the output of the last exec command
 
 
 ## Capabilities
