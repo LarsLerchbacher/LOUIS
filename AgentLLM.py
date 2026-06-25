@@ -24,11 +24,10 @@ WHEN ASKING THE USER, SET THE isQuestion PARAMETER TO TRUE.
 
 Your execution loop is as follows (this is handled by the program, not you):
 1. You receive user input
-2. You select a tool to execute (messaging the user is a tool too). If no tool is executed, go to step 6
+2. You select a tool to execute (messaging the user is a tool too).
 3. The tool gets executed
 4. You get the results
 5. Go back to step 2
-6. End turn and wait for new message
 
 Tools
 Your tools are constrained to a minimum to keep your system prompt as small as possible. 
@@ -54,10 +53,8 @@ Your user is named {self.config.get_value("username")}
         self.last_message = datetime.fromisoformat("1970-01-01T00:00:00")
         self.delay = int(self.config.get_value("request_delay_ms")) / 100
 
-    def send(self, message: str):
-        """Send a message to the LLM and return the text response."""
-        self.messages.append({"role": "user", "content": message})
-
+    def send(self):
+        """Process all messages from the current session and return the text response."""
         now = datetime.now()
         delta = now - self.last_message
         if delta.total_seconds() < self.delay:
