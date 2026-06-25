@@ -63,6 +63,8 @@ Your user is named {self.config.get_value("username")}
         if delta.total_seconds() < self.delay:
             self.logger.info(f"Requests are too fast, sleeping to avoid rate limts ({self.delay - delta.total_seconds()}s)")
             time.sleep(self.delay - delta.total_seconds())
+        
+        self.last_message = now
 
         # Define tools if provided
         tools_schema = None
