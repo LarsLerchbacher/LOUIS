@@ -9,6 +9,7 @@ import json
 import asyncio
 import threading
 import queue
+from mistralai.client.models import AssistantMessage
 
 class API:
     def __init__(self, host: str = "0.0.0.0", port: int = 8000, config = None, logger=None, session_logger=None):
@@ -35,7 +36,7 @@ class API:
             done.set() 
     
     def initialize(self):
-        self.chat = ChatHandler(self.config, self.logger, self.session_logger, self.graph)
+        self.chat = ChatHandler(self.config, self.logger, self.session_logger)
         self.chat.initialize() 
     
     def safe_json_loads(self, s):
@@ -70,6 +71,8 @@ class API:
             async def generate():
                 while True:
                     chunk = await response_queue.get()
+                    if isinstance(chunk, AssistantMessage):
+                        chunk = chunk.content
                     if chunk is DONE_SENTINEL:
                         yield "data: [DONE]\n\n"
                         break
@@ -80,7 +83,7 @@ class API:
                         'model': self.config.get_value('name'),
                         'choices': [{
                             'index': 0,
-                            'delta': {'content': chunk + "\n"},
+                            'delta': {'content': chunk},
                             'finish_reason': None
                         }]
                     })}\n\n"

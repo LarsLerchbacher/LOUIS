@@ -1,5 +1,5 @@
 from Config import Config
-from mistralai.client import Mistral 
+from mistralai.client import Mistral
 import json
 import os
 from datetime import datetime
