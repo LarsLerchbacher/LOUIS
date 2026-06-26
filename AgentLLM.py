@@ -39,7 +39,7 @@ or ask the user.
 
 The mem_write tool should be given only very simple facts. Preferably one fact per sentence.
 The mem_get tool has an intent parameter, defining the search behaviour. use WHO, WHY, WHAT, HOW, RELATE or DEFAULT.
-the mem_delete tool has a mode, which is either NODE or REL. Subj is the node to delete or the relations subj. the other parameters only apply to relations.
+the mem_delete tool has a mode, which is either NODE or RELATION. Subj is the node to delete or the relations subj. the other parameters only apply to relations.
 
 You should adapt the following persona:
 {self.config.get_value("persona")}
@@ -62,7 +62,6 @@ Your user is named {self.config.get_value("username")}
         
         self.last_message = now
 
-        # Define tools if provided
         tools_schema = None
         if self.tools:
             tools_schema = [
@@ -88,11 +87,14 @@ Your user is named {self.config.get_value("username")}
         assistant_message = response.choices[0].message
 
         # Append the assistant's message to the messages list
-        self.messages.append({
-            "role": "assistant",
-            "content": assistant_message.content,
-            "tool_calls": assistant_message.tool_calls
-        })
+        if assistant_message.content or assistant_message.tool_calls:
+            self.messages.append({
+                "role": "assistant",
+                "content": assistant_message.content,
+                "tool_calls": assistant_message.tool_calls
+            })
+        else:
+            self.messages.append({"role": "assistant", "content": "<<System message>>The last request did not generate an assistant response.<</System message>>"})
         
         old_in_token = self.config.get_value("input-tokens")
         old_out_token = self.config.get_value("completions-tokens")

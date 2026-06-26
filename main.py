@@ -408,7 +408,7 @@ def start_session_log():
 
 
 def run_api():
-    global config, logger, session_logger
+    global config, logger, session_logger, graph
     start_session_log()
     api = API(host="0.0.0.0", port=8000, config=config, logger=logger, session_logger=session_logger)
     api.run()
