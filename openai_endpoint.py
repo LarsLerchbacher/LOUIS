@@ -51,6 +51,8 @@ class API:
         @self.app.post("/chat/completions")
         async def chat_completions(request: Request):
             data = await request.json()
+            self.chat.agentLLM.messages = [{"role": "system", "content": self.chat.agentLLM.prompt + self.chat.agentLLM.summary}]
+            self.chat.agentLLM.messages.extend(data["messages"][0:-1])
             user_message = data["messages"][-1]["content"]
             response_queue = asyncio.Queue()
 

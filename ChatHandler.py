@@ -289,6 +289,8 @@ class ChatHandler:
             resp_text = response.choices[0].message.content  
             if resp_text != "No significant updates since last summary.":
                 self.agentLLM.summary += "\n" + resp_text
+                self.config.set_value("last_summary", self.agentLLM.summary)
+                self.config.write()
             
             self.agentLLM.reset(True)  
             

@@ -47,8 +47,7 @@ class Graph:
         ]
 
         self.setup_db()
-
-        #self.discover()
+        self.ensure_nodes()
         self.update_known()
         self.decay_relations()
         self.reduce_activation()
@@ -64,6 +63,7 @@ class Graph:
         self.cursor = self.db.cursor()
 
         self.cursor.execute("""CREATE TABLE IF NOT EXISTS nodes (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
             name VARCHAR(100) NOT NULL,
             known BOOLEAN NOT NULL,
             confidence DOUBLE NOT NULL,
@@ -105,6 +105,23 @@ class Graph:
             parent_name = obj if subj == name else subj
             return self.get_node(parent_name)
         return None
+    
+    def ensure_nodes(self) -> None:
+        """Ensure all nodes referenced in relations exist in the nodes table."""
+        # Fetch all unique subj and obj values from relations that don't exist in nodes
+        self.cursor.execute("""
+            SELECT DISTINCT subj AS node_name FROM relations
+            LEFT JOIN nodes ON relations.subj = nodes.name
+            UNION
+            SELECT DISTINCT obj AS node_name FROM relations
+            LEFT JOIN nodes ON relations.obj = nodes.name
+        """)
+        nodes = [row[0] for row in self.cursor.fetchall()]
+
+        # Create missing nodes
+        for node_name in nodes:
+            self.log(f"Creating missing node: {node_name}")
+            self.get_node(node_name)
 
     def get_inherited_relations(self, node: Node) -> list[Relation]:
         """Walk the is_a chain and collect inherited relations with decaying weight per hop.

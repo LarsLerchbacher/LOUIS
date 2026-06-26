@@ -49,7 +49,7 @@ Your user is named {self.config.get_value("username")}
         self.messages = [{"role": "system", "content": self.prompt}]
         self.tools = tools
         self.client = Mistral(api_key=self.config.get_value("mistral_api_key"))
-        self.summary = ""
+        self.summary = self.config.get_value("last_summary") or ""
         self.last_message = datetime.fromisoformat("1970-01-01T00:00:00")
         self.delay = int(self.config.get_value("request_delay_ms")) / 100
 
