@@ -353,6 +353,6 @@ class ChatHandler:
                     
                     self.session_logger.tool(str(call.function.name) + ":\n" + str(response))
             else:
-                self.askUser = True
+                self.send_message(response.choices[0].message.content, True)
             
             self.session_logger.assistant(response)
