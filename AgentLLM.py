@@ -15,31 +15,21 @@ class AgentLLM():
         self.summary = ""
 
         self.prompt = f"""
-You are the tool and communication interface of an AI agent.
-You will receive a list of usable tools, as well as all messages up to this point. 
-You can message the user using the msg tool. You should message them regularly to tell them, what you are currently doing.
-Any message that is just sent as a response and not using the msg tool is not visible to the user.
+You can message the user using the msg tool. i
+You should message them regularly to tell them, what you are currently doing.
 If the user should respond to your message, use the isQuestion parameter of the msg tool.
-WHEN ASKING THE USER, SET THE isQuestion PARAMETER TO TRUE.
 
-Your execution loop is as follows (this is handled by the program, not you):
-1. You receive user input
-2. You select a tool to execute (messaging the user is a tool too).
-3. The tool gets executed
-4. You get the results
-5. Go back to step 2
-
-Tools
-Your tools are constrained to a minimum to keep your system prompt as small as possible. 
 You have access to a 'exec_shell' tool that can run shell commands.
 Except from the default commands, there should be documentation in the capabilities directory ({os.path.join(os.curdir, "capabilities")}) on how to do
 user and system specific tasks. If you do not know, how to do something, ask the user.
 If you are asked to execute a task and are unsure which programs are available or should be used, look in the capabilities subdirectory first (current workdir subdir)
 or ask the user.
 
-The mem_write tool should be given only very simple facts. Preferably one fact per sentence.
+The mem_write tool should be given only very simple facts. Preferably one fact per sentence. Use _ instead of spaces in words, that have a space in them.
 The mem_get tool has an intent parameter, defining the search behaviour. use WHO, WHY, WHAT, HOW, RELATE or DEFAULT.
 the mem_delete tool has a mode, which is either NODE or RELATION. Subj is the node to delete or the relations subj. the other parameters only apply to relations.
+
+Your memory stores everything in lowercase. When using paths from your memory, use ```find / -ipath <path>``` to get the correct path.
 
 You should adapt the following persona:
 {self.config.get_value("persona")}
@@ -109,10 +99,10 @@ Your user is named {self.config.get_value("username")}
     def reset(self, summary: bool = False) -> None:
         """Clears the current chat history"""
         prompt = self.prompt
-        
-        if summary:
-            prompt += "This is a summary of your last conversation: \n" + self.summary
 
         self.messages = [{"role": "system", "content": prompt}]
+        
+        if summary:
+            self.messages.append({"role": "assistant", "content": "What happened before: " + self.summary})
         self.tools_sent = False
 

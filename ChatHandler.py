@@ -266,33 +266,36 @@ class ChatHandler:
         Summarize the conversation if it exceeds a certain length.
         """
         if len(self.agentLLM.messages) > 100:
-            # Placeholder for summarization logic
-            self.agentLLM.messages.append({"role": "system", "content": """
-            **Summarize the current conversation in 3-5 bullet points.**
-            Focus only on **new information, decisions, or unresolved questions** since the last summary.
-            Assume the reader already knows the prior context.
-            If no meaningful progress was made, state: *“No significant updates since last summary.”*
+            self.send_message("This is an automated message. You have hit 100 messages (including tool calls). It would be a good idea to summarize your session and start a new one, with the summarization as a start point. Use /reset to summarize the session and restart.")
+            self.agentLLM.messages.append({"role": "user", "content": """
+**Summarize the current conversation in 3-5 bullet points.**
+Focus only on **new information, decisions, or unresolved questions** since the last summary.
+Assume the reader already knows the prior context.
+If no meaningful progress was made, state: *“No significant updates since last summary.”*
+Do not acknowledge this command or respond conversationally, just summarize.
 
-            **Constraints:**
-            - Max 5 bullet points.
-            - No fluff, no philosophy, no sarcasm (unless critical).
-            - Prioritize actionable or contextual details.
+**Constraints:**
+- Max 5 bullet points.
+- No fluff, no philosophy, no sarcasm (unless critical).
+- Prioritize actionable or contextual details.
 
-            **Summary:**"""
-                })
-            response = agentLLM.client.chat.complete(
-                model=agentLLM.model,
-                messages=agentLLM.messages,
+**Summary:**"""
+            })
+            response = self.agentLLM.client.chat.complete(
+                model=self.agentLLM.model,
+                messages=self.agentLLM.messages,
                 temperature=0.0,
             )
-            
-            resp_text = response.choices[0].message.content  
+        
+            resp_text = response.choices[0].message.content or "No significant updates since last summary"
+
             if resp_text != "No significant updates since last summary.":
                 self.agentLLM.summary += "\n" + resp_text
                 self.config.set_value("last_summary", self.agentLLM.summary)
                 self.config.write()
             
             self.agentLLM.reset(True)  
+           
             
     def handle_user_input(self, message: str, response_queue=None, event_loop=None) -> None:
         """
@@ -304,15 +307,9 @@ class ChatHandler:
         self.response_queue = response_queue 
         self.event_loop = event_loop
 
-        if message == "/exit":
-            self.askUser = False
-        elif message == "/reset":
-            self.summarize()
-        elif message == "/new":
-            self.agentLLM.reset(False)
-        else:
-            self.askUser = False
-            self.process_message("user", message)
+        self.askUser = False
+        self.process_message("user", message)
+
             
     def process_message(self, sender: str = "user", message: str = "") -> Any:
         """
@@ -328,7 +325,6 @@ class ChatHandler:
         self.agentLLM.messages.append({"role": sender, "content": message})
         
         while not self.askUser:
-            print(self.agentLLM.messages)
             response = self.agentLLM.send()
             
             self.session_logger.info(f"Prompt tokens: {response.usage.prompt_tokens}")
@@ -356,5 +352,5 @@ class ChatHandler:
                     self.session_logger.tool(str(call.function.name) + ":\n" + str(response))
             else:
                 self.send_message(response.choices[0].message.content, True)
-            
-            self.session_logger.assistant(response)
+                #self.session_logger.assistant(response.choices[0].message.content)
+    
