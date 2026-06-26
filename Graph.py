@@ -120,7 +120,7 @@ class Graph:
 
         # Create missing nodes
         for node_name in nodes:
-            self.log(f"Creating missing node: {node_name}")
+            self.log(f"Loading node: {node_name}")
             self.get_node(node_name)
 
     def get_inherited_relations(self, node: Node) -> list[Relation]:
@@ -152,7 +152,7 @@ class Graph:
                 inherited_relations.append(inherited_rel)
             current = parent
             hop += 1
-
+        
         return inherited_relations
 
     def discover(self):
@@ -167,7 +167,7 @@ class Graph:
             
     def get_node(self, name: str) -> Node:
         """Retrieve a node by name, creating it if it doesn't exist."""
-        query_result = self.cursor.execute("SELECT * FROM nodes WHERE name == ?;", (name,)).fetchone()
+        query_result = self.cursor.execute("SELECT name, known, confidence, activation FROM nodes WHERE name == ?;", (name,)).fetchone()
         if name in self.nodes:
             return self.nodes[name]
         elif query_result != None:
@@ -187,7 +187,8 @@ class Graph:
 
     def decay_relations(self) -> None:
         """Apply exponential decay to all relation weights based on time since last decayed."""
-        for name in self.nodes:
+        for row in self.cursor.execute("SELECT name FROM nodes;"):
+            name = row[0]
             node = self.get_node(name)
             for rel in self.get_relations(node):
                 last_dec = rel.get_last_decayed()
@@ -204,7 +205,7 @@ class Graph:
             #node.set_activation(node.get_activation() * 0.3)
             node.set_activation(0.0)
             self.save_node(node.get_name())"""
-        self.cursor.execute("UPDATE nodes SET activation = 0;")
+        self.cursor.execute("UPDATE nodes SET activation = activation * 0.2;")
 
     def save_relation(self, rel: Relation) -> None:
         """Persist a relation's weight and last_fired to DB, sync to Node's in-memory list, then write markdown."""
@@ -244,7 +245,7 @@ class Graph:
     def get_relation_by_id(self, relation_id: int) -> Relation:
         """Retrieve a relation by its database ID."""
         raw = self.cursor.execute("SELECT * FROM relations WHERE id == ?;", (relation_id,)).fetchone()
-        if raw is None:
+        if raw is None or raw == []:
             raise ValueError(f"Relation with id {relation_id} not found.")
         if len(raw) < 7:
             raise ValueError(f"Invalid relation data for id {relation_id}. Expected 7 columns, got {len(raw)}.")
@@ -261,7 +262,10 @@ class Graph:
         results = self.cursor.execute(
             "SELECT id FROM relations WHERE subj == ? OR obj == ? ORDER BY weight DESC;", (name, name)
         ).fetchall()
-        return [self.get_relation_by_id(row[0]) for row in results]
+        rels = []
+        for row in results:
+            rels.append(self.get_relation_by_id(row[0]))
+        return rels
 
     def get_relations(self, node: Node) -> list[Relation]:
         """Return all relations for a node — direct and inherited."""
@@ -311,6 +315,7 @@ class Graph:
 
             node = self.get_node(current_name)
             node.set_activation(node.get_activation() + current_act)
+            self.log(f"Activation: {node.get_activation()}")
             self.save_node(current_name)
 
             if node.get_activation() >= self.threshold:
@@ -331,7 +336,7 @@ class Graph:
                         continue  # Only follow "causes" or "supports" relations for causal/supporting edges
                     elif intent == "HOW" and current_hop >= 2:
                         continue  # Limit to multi-hop paths (e.g., 2 hops)
-                    elif intent == "RELATE" and rel.get_name() in ("is_a", "has", "has_property", "causes", "supports"):
+                    elif intent == "RELATE" and rel.get_name() not in ("is_a", "has", "has_property", "causes", "supports"):
                         continue  # Focus on direct relations for shortest path search
 
                     self.strengthen_relation(node, rel, current_hop)
@@ -377,15 +382,13 @@ class Graph:
             self.save_relation(rel)
 
     def get_output(self) -> list[Node]:
-        """Return the top 25 most activated nodes (activation > 0.6), sorted descending."""
+        """Return the top 25 most activated nodes (activation > 0.5), sorted descending."""
         rows = self.cursor.execute(
             "SELECT name FROM nodes WHERE activation >= 0.5 ORDER BY activation DESC LIMIT 10;"
         ).fetchall()
         return [self.get_node(row[0]) for row in rows]
 
     def feed_input(self, subj: str, rel: str, obj: str, intent: str = "DEFAULT") -> None:
-        #self.reduce_activation()
-
         subj = subj.lower().strip()
         rel = rel.lower().strip()
         obj = obj.lower().strip()
@@ -446,7 +449,7 @@ class Graph:
 
             self.save_node(node_name)
 
-    def generate_graph_view(self, limit=2000):
+    def generate_graph_view(self):
         net = Network(height="900px", width="100%", directed=True,  bgcolor = "#222222", font_color = "white", select_menu=True, filter_menu=True)
         
         nodes = self.cursor.execute(
@@ -457,8 +460,8 @@ class Graph:
         edges = self.cursor.execute(
             """SELECT e.subj, e.name, e.obj, e.weight 
                FROM relations e
-               WHERE e.subj IN (SELECT name FROM nodes ORDER BY activation DESC LIMIT ?)
-               AND e.obj IN (SELECT name FROM nodes ORDER BY activation DESC LIMIT ?)""",
+               WHERE e.subj IN (SELECT name FROM nodes ORDER BY activation DESC)
+               AND e.obj IN (SELECT name FROM nodes ORDER BY activation DESC)""",
             (limit, limit)
         ).fetchall()
         
@@ -495,7 +498,7 @@ class Graph:
         
         if intent == None:
             intent = self.parse_intent(text)
-        nodes = self.parse_nodes(text)
+        nodes = self.parse_nodes(text) or [text]
         
         self.log(f"Detected {intent} intent.")
         
