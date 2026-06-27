@@ -45,9 +45,10 @@ LOUIS uses a differrent approach than OpenClaw, when it comes to adding features
 We have 'capabilities', which are markdown files, just like Skills in OpenClaw, containing usage information about different user- or system specific tools and workflows.
 The agent is instructed to look throught the available capabilities before guessing how to execute an action.
 
-Capabilities are **markdown files on disk** and **never injected into context**, unless the agent decides to read one using the exec tool.
+Capabilities are **markdown files on disk** and **are only injected into context**, when the user asks for something matching their name. The agent can also read them freely to find
+the correct tool.
 This is the major difference to OpenClaw, which exposes all available skills and tools every turn, regardless of the task. Our approach reduces token cost **immensly**.
-On a day of heavy testing, LOUIS used about 700k tokens, while OpenClaw used between 5 and 20 MILLION tokens.
+On a day of heavy testing, LOUIS used about 1M tokens, while OpenClaw used between 5 and 20 Million tokens.
 
 
 ## History

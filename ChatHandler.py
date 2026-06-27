@@ -3,6 +3,7 @@ from typing import Dict, List, Any, Callable, Optional
 from Graph import Graph
 import subprocess
 import threading
+import os
 
 
 class ChatHandler:
@@ -307,8 +308,21 @@ Do not acknowledge this command or respond conversationally, just summarize.
         self.response_queue = response_queue 
         self.event_loop = event_loop
 
+        self.inject_capabilities(message)
+        
         self.askUser = False
         self.process_message("user", message)
+
+
+    def inject_capabilities(self, message):
+        for row in os.walk(os.path.join(os.curdir, "capabilities")):
+            dirpath = row[0]
+            filenames = row[2]
+            for filename in filenames:
+                if str(filename).removesuffix(".md").lower() in message.lower():
+                    self.logger.info(f"Injecting {filename}")
+                    with open(os.path.join(dirpath, filename), mode="r") as file:
+                        self.agentLLM.messages.append({"role": "system", "content": "Auto injection of relevant capabilities: \n" + file.read()})
 
             
     def process_message(self, sender: str = "user", message: str = "") -> Any:
