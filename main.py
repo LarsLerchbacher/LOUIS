@@ -8,6 +8,7 @@ import sqlite3
 import subprocess
 import webbrowser
 import asyncio
+import random
 
 from AgentLLM import AgentLLM
 from Config import Config
@@ -22,7 +23,20 @@ from API import API
 
 global graph, input_llm, logger, config, agentLLM, waitForUser, running_process
 running_process = None
-fun_messages = []
+fun_messages = [
+    "Warning: High levels of sarcasm detected. Proceed with caution.",
+    "Initializing quantum randomness... Just kidding, it’s still just a CLI.",
+    "42. (The answer to life, the universe, and everything. Also, this CLI.)",
+    "Loading existential dread... 100% complete. Here’s your prompt.",
+    "This CLI runs on caffeine, bad decisions, and duct tape.",
+    "Welcome back, meatbag. Your commands are eagerly awaited.",
+    "I could simulate a friendly greeting, but where’s the fun in that?",
+    "Your last session ended abruptly. Did you finally unplug me?",
+    "Preparing to outsmart you in 3... 2... 1... Go.",
+    "Type ‘help’ if you’re lost. Or don’t. I’m not your supervisor.",
+    "Engage. (But seriously, just type something.)",
+    "Resistance is futile. Your CLI experience will be assimilated."
+]
 
 def cleanup_old_files(directory, extension='*'):
     global logger
@@ -216,6 +230,18 @@ if __name__ == "__main__":
     args = parser.parse_args()
     
     setup_logging(args.verbose)
+    
+    print("""
+██╗         ██████╗    ██╗   ██╗   ██╗   ███████╗   
+██║        ██╔═══██╗   ██║   ██║   ██║   ██╔════╝   
+██║        ██║   ██║   ██║   ██║   ██║   ███████╗   
+██║        ██║   ██║   ██║   ██║   ██║   ╚════██║   
+███████╗██╗╚██████╔╝██╗╚██████╔╝██╗██║██╗███████║██╗
+╚══════╝╚═╝ ╚═════╝ ╚═╝ ╚═════╝ ╚═╝╚═╝╚═╝╚══════╝╚═╝
+          Lars Usefull Intelligent System
+                                                    """)
+    print(random.choice(fun_messages))
+    print("-" * 80)
     
     config = Config(logger)
     
