@@ -18,22 +18,23 @@ from Graph import Graph
 from Node import Node
 from Relation import Relation
 from TUI import TUI
-from openai_endpoint import API
+from API import API
 
 global graph, input_llm, logger, config, agentLLM, waitForUser, running_process
 running_process = None
+fun_messages = []
 
 def cleanup_old_files(directory, extension='*'):
     global logger
     files = glob.glob(f'{directory}/{extension}')
-    if len(files) <= 5:
-        return  # No need to clean up if there are 5 or fewer files
+    if len(files) <= 20:
+        return  # No need to clean up if there are 20 or fewer files
     
-    # Sort files by modification time, oldest first
-    files.sort(key=os.path.getmtime)
+    # Sort files by name desc
+    files.sort(key=os.path.basename, reverse=True)
     
-    # Delete all but the last 5 files
-    for file in files[:-5]:
+    # Delete all but the last 20 files
+    for file in files[:-20]:
         os.remove(file)
         logger.info(f'Deleted old file: {file}')
 
@@ -41,24 +42,72 @@ def write() -> None:
     global graph, input_llm, config
     
     try:
-        message = input("> ")
+        message = input("Enter simple facts to store > ")
         graph.write(message)
-        
-        context = graph.generate_context() 
-        graph.generate_graph_view()
-        print(context)
     except KeyboardInterrupt:
         print("Ctrl + C detected. Stopping program")
 
 def query() -> None:
     global graph, input_llm
     try:
-        message = input("> ")
+        message = input("Enter entity or question to search for > ")
         graph.query(message)
         
+        print("Results:")
         print(graph.generate_context())
     except KeyboardInterrupt:
         print("Ctrl + C detected. Stopping program")
+
+def delete() -> None:
+    global graph
+    try:
+        mode = None
+        while mode not in ("node", "rel"):
+            mode = input("Please enter deletion mode (node or rel) > ")
+        
+        if mode == "node":
+            node = None
+            while not node in graph.nodes:
+                node = input("Please enter the node to delete > ")
+                if node not in graph.nodes:
+                    print("This node does not exist!")
+                
+            graph.cursor.execute("DELETE FROM nodes WHERE name == ?; DELETE FROM relations WHERE subj == ? OR obj == ?;", (node, node, node))
+            graph.db.commit()
+            
+            print("Successfullly deleted node!")
+        
+        else:
+            subj = None
+            while not subj in graph.nodes:
+                subj = input("Please enter the subj of the relation to delete > ")
+                if subj not in graph.nodes:
+                    print("This node does not exist!")
+            
+            obj = None
+            while not obj in graph.nodes:
+                obj = input("Please enter the obj of the relation to delete > ")
+                if obj not in graph.nodes:
+                    print("This node does not exist!")
+            
+            if len(graph.cursor.execute("SELECT id FROM relations WHERE subj == ? AND obj == ?;", (subj, obj)).fetchall()) == 0:
+                print("There is not relation between these two nodes!")
+                return
+            
+            rel = None
+            while not graph.cursor.execute("SELECT id FROM relations WHERE subj == ? AND name == ? AND obj == ?;", (subj, rel, obj)).fetchone():
+                if not rel == None:
+                    print("This relation does not exist!")
+                rel = input("Please enter the relation between the subj and obj you want to delete > ")
+            
+            graph.cursor.execute("DELETE FROM relations WHERE subj == ? AND name == ? AND obj == ?;", (subj, rel, obj))
+            graph.db.commit()
+            
+            print("Sucessfully deleted relation.")
+        
+    except Exception as e:
+        logger.error("Something went wrong...")
+        logger.error(e)
 
 def user(self, message, *args, **kwargs):
     self.log(26, "\r" + message, *args, **kwargs)
@@ -70,14 +119,7 @@ def tool(self, message, *args, **kwargs):
     self.log(25, "\r" + message, *args, **kwargs)
 
 
-def safe_json_loads(s):
-    """Necesary to avoid problems when the LLM uses newlines"""
-    s = s.replace("\n", "\\n") # Replace actual newlines with python escape sequence
-    s = re.sub(r"[\x00-\x1f\x7f]", "", s)  # remove all other control chars
-    return json.loads(s) 
-
-
-def setup_logging(debug: bool = False):
+def setup_logging(verbose: bool = False):
     global logger, session_logger, config
     """Initialize logging to timestamped files under logs/."""
     log_dir = "logs"
@@ -87,7 +129,7 @@ def setup_logging(debug: bool = False):
     log_filename = f"{log_dir}/{timestamp}.log"
     
     streamHandler = logging.StreamHandler()
-    if debug:
+    if verbose:
         streamHandler.setLevel(logging.DEBUG)
     else:
         streamHandler.setLevel(logging.WARN)
@@ -135,22 +177,22 @@ def start_session_log():
 
 
 def run_api():
-    global config, logger, session_logger
+    global config, logger, session_logger, api
     start_session_log()
     api = API(host="0.0.0.0", port=8000, config=config, logger=logger, session_logger=session_logger)
     api.run()
 
 def run_tui():
-    global config, logger, session_logger
+    global config, logger, session_logger, tui
     start_session_log()
     tui = TUI(logger, session_logger, config)
 
 if __name__ == "__main__":
-    global graph, input_llm, logger, config, agentLLM
+    global graph, input_llm, logger, config, agentLLM, tui, api
     
     parser = argparse.ArgumentParser(
         prog="louis",
-        description="L.O.U.I.S. project CLI. A program to interact with LOUIS based AI models",
+        description="L.O.U.I.S. project CLI. A program to interact with LOUIS based AI agents",
         formatter_class=argparse.RawDescriptionHelpFormatter
     )
     
@@ -160,10 +202,16 @@ if __name__ == "__main__":
     subparsers.required = True
     
     chat_parser = subparsers.add_parser("chat", help="Start a TUI chat with a LOUIS based model")
-    write_parser = subparsers.add_parser("write", help="Write structured facts to the graph")
-    query_parser = subparsers.add_parser("query", help="Query the graph about a question/concept")
-    graph_parser = subparsers.add_parser("graph", help="View a graph representation of the AIs memory")
     api_parser = subparsers.add_parser("api", help="Start the OpenAI-compatible API server")
+
+    graph_parser = subparsers.add_parser("graph", help="Interact with the agents memory manually")
+    graph_subparsers = graph_parser.add_subparsers(dest="graph_command", metavar="GRAPH_COMMAND")
+    graph_subparsers.required = True
+
+    query_parser = graph_subparsers.add_parser("query", help="Query the agents memory about a question/concept")
+    write_parser = graph_subparsers.add_parser("write", help="Write structured facts to the agents memory")
+    delete_parser = graph_subparsers.add_parser("delete", help="Delete either nodes or relations from the memory")
+    show_parser = graph_subparsers.add_parser("show", help="Show the memory of the agent as a graph in your webbrowser")
     
     args = parser.parse_args()
     
@@ -177,22 +225,49 @@ if __name__ == "__main__":
     cleanup_old_files("logs")
     cleanup_old_files("sessions")
     
-    graph = Graph(config.get_value("name"), logger, config, args.verbose)
+    graph = Graph(config.get_value("name"), logger, config)
     
-    if args.command == "write":
-        write()
-    elif args.command == "query":
-        query()
-    elif args.command == "chat":
-        try:
-            #chat()
+    try:
+        if args.command == "chat":
             run_tui()
-        except KeyboardInterrupt:
-            print("Ctrl + C detected, stopping program.")
-    elif args.command == "graph":
-        graph.generate_graph_view()
-        webbrowser.open("graph.html")
-    elif args.command == "api":
-        run_api()
-    else:
-        print("Unknown subcommand!")
+            
+        elif args.command == "api":
+            run_api()
+
+        elif args.command == "graph":
+            if args.graph_command == "write":
+                write()
+            elif args.graph_command == "query":
+                query()
+            elif args.graph_command == "delete":
+                delete()
+            elif args.graph_command == "show":        
+                graph.generate_graph_view()
+                webbrowser.open("graph.html")
+
+        else:
+            print("Unknown subcommand!")
+
+    except KeyboardInterrupt or asyncio.exceptions.CancelledError:
+        if tui:
+            tui.stop_event.set()
+            tui.task.cancel()
+            tui.chat_thread.join()
+            while not tui._task_queue.empty():
+                try:
+                    tui._task_queue.get_nowait()
+                    tui._task_queue.task_done()  # Mark the task as done (if using join later)
+                except queue.Empty:
+                    break
+            
+        if api:
+            api.done.set()
+            api.task.cancel()
+            while not tui._task_queue.empty():
+                try:
+                    tui._task_queue.get_nowait()
+                    tui._task_queue.task_done()  # Mark the task as done (if using join later)
+                except queue.Empty:
+                    break
+        print("Ctrl + C detected, stopping program.")
+        quit(0)

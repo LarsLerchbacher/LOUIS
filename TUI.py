@@ -33,7 +33,7 @@ class TUI():
             self.chat.handle_user_input(user_input, response_queue)
             stop_event.set()
 
-        asyncio.run(chat())
+        self.task = asyncio.run(chat())
 
     def tui_chat(self):
         """Handle chat in the TUI with threading"""
@@ -52,9 +52,9 @@ class TUI():
                     self.chat.agentLLM.reset(False)
                     continue
     
-                stop_event = threading.Event()
-                thinking_thread = threading.Thread(target=self.thinking_animation, args=(stop_event,))
-                chat_thread = threading.Thread(target=self.run_chat_handler, args=(user_input, stop_event, response_queue))
+                self.stop_event = threading.Event()
+                thinking_thread = threading.Thread(target=self.thinking_animation, args=(self.stop_event,))
+                chat_thread = threading.Thread(target=self.run_chat_handler, args=(user_input, self.stop_event, response_queue))
                 
                 thinking_thread.start()
                 chat_thread.start()

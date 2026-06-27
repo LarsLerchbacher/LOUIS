@@ -25,15 +25,15 @@ class API:
         self._worker_thread = threading.Thread(target=self._worker_loop, daemon=True)
         self._worker_thread.start()
         
-        done = threading.Event()
-        self._task_queue.put((self.initialize, done))
-        done.wait()
+        self.done = threading.Event()
+        self._task_queue.put((self.initialize, self.done))
+        self.done.wait()
     
     def _worker_loop(self):
         while True:
-            task, done = self._task_queue.get()
+            task, self.done = self._task_queue.get()
             task()
-            done.set() 
+            self.done.set() 
     
     def initialize(self):
         self.chat = ChatHandler(self.config, self.logger, self.session_logger)
@@ -58,17 +58,17 @@ class API:
 
             async def process_input():
                 loop = asyncio.get_event_loop()
-                done = threading.Event()
+                self.done = threading.Event()
 
                 def task():
                     self.chat.handle_user_input(user_message, response_queue, loop)
                     loop.call_soon_threadsafe(response_queue.put_nowait, DONE_SENTINEL)
-                    done.set()
+                    self.done.set()
 
-                self._task_queue.put((task, done))
-                await loop.run_in_executor(None, done.wait)
+                self._task_queue.put((task, self.done))
+                await loop.run_in_executor(None, self.done.wait)
 
-            asyncio.create_task(process_input())
+            self.task = asyncio.create_task(process_input())
 
             async def generate():
                 while True:

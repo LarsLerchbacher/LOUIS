@@ -20,11 +20,10 @@ class Graph:
     Activation spreads through the network via strengthening or inhibiting relations.
     """
 
-    def __init__(self, name: str, logger: logging.Logger, config: Config, production: bool):
+    def __init__(self, name: str, logger: logging.Logger, config: Config):
         self.name = name
         self.config = config
         self.logger = logger
-        self.production = production
         self.nodes = {}
         self.fired_nodes = []
         self.stack = set()
@@ -453,16 +452,13 @@ class Graph:
         net = Network(height="900px", width="100%", directed=True,  bgcolor = "#222222", font_color = "white", select_menu=True, filter_menu=True)
         
         nodes = self.cursor.execute(
-            "SELECT name, activation FROM nodes ORDER BY activation DESC LIMIT ?", 
-            (limit,)
-        ).fetchall()
+            "SELECT name, activation FROM nodes ORDER BY activation DESC;").fetchall()
         
         edges = self.cursor.execute(
             """SELECT e.subj, e.name, e.obj, e.weight 
                FROM relations e
                WHERE e.subj IN (SELECT name FROM nodes ORDER BY activation DESC)
                AND e.obj IN (SELECT name FROM nodes ORDER BY activation DESC)""",
-            (limit, limit)
         ).fetchall()
         
         for name, activation in nodes:
