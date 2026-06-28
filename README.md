@@ -1,20 +1,42 @@
 L.O.U.I.S
 =========
 
-Lars Original Usefull Intelligent System<br>
+```text
+██╗         ██████╗    ██╗   ██╗   ██╗   ███████╗   
+██║        ██╔═══██╗   ██║   ██║   ██║   ██╔════╝   
+██║        ██║   ██║   ██║   ██║   ██║   ███████╗   
+██║        ██║   ██║   ██║   ██║   ██║   ╚════██║   
+███████╗██╗╚██████╔╝██╗╚██████╔╝██╗██║██╗███████║██╗
+╚══════╝╚═╝ ╚═════╝ ╚═╝ ╚═════╝ ╚═╝╚═╝╚═╝╚══════╝╚═╝
+          Lars Usefull Intelligent System
+```
+
+![A very annoyed owl in a labcoat, holding a cup of coffee](LOUIS.png)
+
 
 ## What is LOUIS
-LOUIS is an experiment to create a custom token efficient agent, building upon the current generation of **LLMs** combined with the power of **semantic networks** with **spread activation**.
+LOUIS is an experiment to create a custom, token efficient agent, building upon the current generation of **LLMs** combined with the power of **semantic networks** with **spread activation** as well as the very helpful [Open WebUI](https://docs.openwebui.com/).
 
 ## How can I use LOUIS?
 
 You can download it, create a python virtual environment and install the requirements from `requirements.txt`.
 Edit the default config.json file, add your own API key (the included one is invalid, if you're wondering, uploaded it by mistake), set your name, the name of the AI and adjust its personality prompt.
 
-Then just run `python main.py chat` to start chatting with your own agent.<br>
-`python main.py graph` opens the graph view in the browser (is updated every write, just reload the page)<br>
-`python main.py query` launches an interactive graph query. Just type a concept, name or question and press enter. You will get exactly what LOUIS sees too.<br>
-`python main.py write` launches and interactive write mode. Type a fact in VERY simple language to write to the graph. The extractor LLM easily misinterprets stuff, so try to stick to one fact per sentence. Facts should be rephrasable to the form: `subj --- relation --> object`. This is what the graph stores internally.
+### Quick start with terminal chat
+Then just run `python main.py chat` to start chatting with your own agent from your terminal. The terminal chat has a /reset command, which summarizes the current session and starts a new one with the summary added to its system prompt and /new which starts a clean new session. To exit it, enter /exit<br>
+
+
+### Inteded use
+The intended use of LOUIS is combined with Open WebUI. This adds a lot of additional features, like chats, voice conversations and scheduled prompts.
+For this to work, you need to run an Open WebUI server and add an OpenAI endpoint, pointing to the IP address of the LOUIS server at port 8000.
+
+
+### Memory
+The LOUIS CLI also has support for manual memory interactions, to view or edit the agents memory. This is available with the graph command and the following subcommands:
+
+`python main.py graph show` opens the graph view in the browser (is updated every write, just reload the page)<br>
+`python main.py graph query` launches an interactive graph query. Just type a concept, name or question and press enter. You will get exactly what LOUIS sees too.<br>
+`python main.py graph write` launches and interactive write mode. Type a fact in VERY simple language to write to the graph. The extractor LLM easily misinterprets stuff, so try to stick to one fact per sentence. Facts should be rephrasable to the form: `subj --- relation --> object`. This is what the graph stores internally.
 
 
 ## What makes LOUIS special
@@ -30,11 +52,11 @@ Aside from the fact, that it uses a semantic network as its main memory system, 
 
 This alone may not be the most uncommon loop. What is uncommon, however are the available tools:
 
-- msg: The message tool allows the agent to communicate with the user. It is the only way the agent can send output to the user. It can be used between other tool calls, enabling it to give regular status updates. It can also be used to ask the user a question and pause the execution until an answer is received. This allows it to ask for clarification instead of guessing.
+- msg: The message tool allows the agent to communicate with the user. As it is a tool itself, it can be used between other tool calls, enabling the agent to give regular status updates. It can also be used to ask the user a question and pause the execution until an answer is received. This allows it to ask for clarification instead of guessing.
 - mem_get: Querries the memory graph
 - mem_write: Writes facts to the memory
 - mem_delete: Delete wrong/old nodes and relations for memory
-- exec: Execute a shell command in the background (only one can be active at a time)
+- exec: Execute a shell command. Commands that take longer than 30 seconds are executed in the background. Only one command can be run at a time, but the agent can choose to overwrite the curent task with a new one, in case it runs a non-terminating command.
 - checkProc: Get the output of the last exec command
 
 
@@ -45,8 +67,9 @@ LOUIS uses a differrent approach than OpenClaw, when it comes to adding features
 We have 'capabilities', which are markdown files, just like Skills in OpenClaw, containing usage information about different user- or system specific tools and workflows.
 The agent is instructed to look throught the available capabilities before guessing how to execute an action.
 
-Capabilities are **markdown files on disk** and **are only injected into context**, when the user asks for something matching their name. The agent can also read them freely to find
+Capabilities are **markdown files on disk** and **are only injected into context**, when the users message contains their name. The agent can also read them freely to find
 the correct tool.
+
 This is the major difference to OpenClaw, which exposes all available skills and tools every turn, regardless of the task. Our approach reduces token cost **immensly**.
 On a day of heavy testing, LOUIS used about 1M tokens, while OpenClaw used between 5 and 20 Million tokens.
 
@@ -77,4 +100,4 @@ interaction loop. That is why I started to convert LOUIS back into a full-flegge
 
 ## AI work on this project
 
-I used my OpenClaw agent "JARVIS" (yes, very generic, I know) to create two and a half pull requests for this project. The last one, a refactor task, failed during the work on it. I then had to manually clean it up (ok, I also used an AI chat in my IDE to do it, but a lot of work was manual too). 
+I used my OpenClaw agent "JARVIS" (yes, very generic, I know) to create two and a half pull requests for this project. The last one, a refactor task, failed during the work on it. I then had to manually clean it up (ok, I also used an AI chat in my IDE to do it, but a lot of work was manual too).  The other changes made by JARVIS (now the account belongs to LOUIS) were in reality made by me, while using the computer JARVIS/LOUIS are running on.
