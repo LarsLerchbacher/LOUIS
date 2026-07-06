@@ -9,6 +9,8 @@ import subprocess
 import webbrowser
 import asyncio
 import random
+import queue
+import sys
 
 from AgentLLM import AgentLLM
 from Config import Config
@@ -20,8 +22,9 @@ from Node import Node
 from Relation import Relation
 from TUI import TUI
 from API import API
+from cron import CronManager
 
-global graph, input_llm, logger, config, agentLLM, waitForUser, running_process
+global graph, input_llm, logger, config, agentLLM, waitForUser, running_process, tui, api
 running_process = None
 fun_messages = [
     "Warning: High levels of sarcasm detected. Proceed with caution.",
@@ -52,73 +55,59 @@ def cleanup_old_files(directory, extension='*'):
         os.remove(file)
         logger.info(f'Deleted old file: {file}')
 
-def write() -> None:
+def write(fact: str) -> None:
     global graph, input_llm, config
     
     try:
-        message = input("Enter simple facts to store > ")
-        graph.write(message)
+        graph.write(fact)
     except KeyboardInterrupt:
         print("Ctrl + C detected. Stopping program")
 
-def query() -> None:
+def query(question: str) -> None:
     global graph, input_llm
     try:
-        message = input("Enter entity or question to search for > ")
-        graph.query(message)
+        graph.query(question)
         
         print("Results:")
         print(graph.generate_context())
     except KeyboardInterrupt:
         print("Ctrl + C detected. Stopping program")
 
-def delete() -> None:
+def delete(mode: str, subj: str, relation: str = None, obj: str = None) -> None:
     global graph
     try:
-        mode = None
-        while mode not in ("node", "rel"):
-            mode = input("Please enter deletion mode (node or rel) > ")
-        
         if mode == "node":
-            node = None
-            while not node in graph.nodes:
-                node = input("Please enter the node to delete > ")
-                if node not in graph.nodes:
-                    print("This node does not exist!")
-                
-            graph.cursor.execute("DELETE FROM nodes WHERE name == ?; DELETE FROM relations WHERE subj == ? OR obj == ?;", (node, node, node))
+            if subj not in graph.nodes:
+                print("This node does not exist!")
+                return
+            
+            graph.cursor.execute("DELETE FROM nodes WHERE name == ?; DELETE FROM relations WHERE subj == ? OR obj == ?;", (subj, subj, subj))
             graph.db.commit()
             
             print("Successfullly deleted node!")
         
         else:
-            subj = None
-            while not subj in graph.nodes:
-                subj = input("Please enter the subj of the relation to delete > ")
-                if subj not in graph.nodes:
-                    print("This node does not exist!")
+            if not subj in graph.nodes:
+                print("The subject node does not exist!")
+                return
             
-            obj = None
-            while not obj in graph.nodes:
-                obj = input("Please enter the obj of the relation to delete > ")
-                if obj not in graph.nodes:
-                    print("This node does not exist!")
+            if not obj in graph.nodes:
+                print("The object node does not exist!")
+                return
             
             if len(graph.cursor.execute("SELECT id FROM relations WHERE subj == ? AND obj == ?;", (subj, obj)).fetchall()) == 0:
                 print("There is not relation between these two nodes!")
                 return
             
-            rel = None
-            while not graph.cursor.execute("SELECT id FROM relations WHERE subj == ? AND name == ? AND obj == ?;", (subj, rel, obj)).fetchone():
-                if not rel == None:
-                    print("This relation does not exist!")
-                rel = input("Please enter the relation between the subj and obj you want to delete > ")
-            
-            graph.cursor.execute("DELETE FROM relations WHERE subj == ? AND name == ? AND obj == ?;", (subj, rel, obj))
-            graph.db.commit()
-            
-            print("Sucessfully deleted relation.")
-        
+            rel = graph.cursor.execute("SELECT id FROM relations WHERE subj == ? AND name == ? AND obj == ?;", (subj, relation, obj)).fetchall()
+            if not rel:
+                print("This relation does not exist!")
+                return
+            else:
+                graph.cursor.execute("DELETE FROM relations WHERE subj == ? AND name == ? AND obj == ?;", (subj, relation, obj))
+                graph.db.commit()
+                print("Sucessfully deleted relation.")
+    
     except Exception as e:
         logger.error("Something went wrong...")
         logger.error(e)
@@ -160,6 +149,7 @@ def setup_logging(verbose: bool = False):
     logger = logging.getLogger(__name__)
     
 
+
 def start_session_log():
     global logger, session_logger, config
     
@@ -187,8 +177,7 @@ def start_session_log():
     
     for handler in handlers:
         handler.setFormatter(logging.Formatter("%(message)s\n%(asctime)s - %(levelname)s\n" + "-" * 50))
-        session_logger.addHandler(handler)  
-
+        session_logger.addHandler(handler)
 
 def run_api():
     global config, logger, session_logger, api
@@ -202,7 +191,7 @@ def run_tui():
     tui = TUI(logger, session_logger, config)
 
 if __name__ == "__main__":
-    global graph, input_llm, logger, config, agentLLM, tui, api
+    global graph, input_llm, logger, config, agentLLM, tui, api, cron_manager
     
     parser = argparse.ArgumentParser(
         prog="louis",
@@ -223,23 +212,59 @@ if __name__ == "__main__":
     graph_subparsers.required = True
 
     query_parser = graph_subparsers.add_parser("query", help="Query the agents memory about a question/concept")
+    query_parser.add_argument("question")
     write_parser = graph_subparsers.add_parser("write", help="Write structured facts to the agents memory")
+    write_parser.add_argument("fact")
     delete_parser = graph_subparsers.add_parser("delete", help="Delete either nodes or relations from the memory")
+    delete_mode_parser = delete_parser.add_subparsers(dest="delete_mode", metavar="DELETION_MODE")
+    delete_mode_parser.required = True
+
+    delete_node_parser = delete_mode_parser.add_parser("node", help="Delete a node and all of its relations from the graph")
+    delete_node_parser.add_argument("node")
+
+    delete_relation_parser = delete_mode_parser.add_parser("relation", help="Delete a relation from the graph")
+    delete_relation_parser.add_argument("subj")
+    delete_relation_parser.add_argument("relation")
+    delete_relation_parser.add_argument("obj")
     show_parser = graph_subparsers.add_parser("show", help="Show the memory of the agent as a graph in your webbrowser")
+    
+    cron_parser = subparsers.add_parser("cron", help="Manage automated prompts using OpenWebUI's automations API")
+    cron_subparser = cron_parser.add_subparsers(dest="cron_command", metavar="CRON_COMMAND")
+    cron_subparser.required = True
+    
+    cron_list_parser = cron_subparser.add_parser("list", help="List all existing automations")
+    cron_add_parser = cron_subparser.add_parser("add", help="Add a new automation")
+    cron_add_parser.add_argument("name", help="The name of the automation")
+    cron_add_parser.add_argument("prompt", help="The prompt that the model should execute when the automation is run") 
+    cron_add_parser.add_argument("rrule", help="The RRULE defining when to run the automation. See RFC 5545 for details.")
+    
+    cron_update_parser = cron_subparser.add_parser("update", help="Update an automation selected by its ID")
+    cron_update_parser.add_argument("id", help="The ID of the automation to update")
+    cron_update_parser.add_argument("name", help="The name of the automation")
+    cron_update_parser.add_argument("prompt", help="The prompt that the model should execute when the automation is run") 
+    cron_update_parser.add_argument("rrule", help="The RRULE defining when to run the automation. See RFC 5545 for details.")
+    cron_update_parser.add_argument("is_active", help="Should the automation be run when it's RRULE's requirements are met")
+    
+    cron_run_parser = cron_subparser.add_parser("run", help="Run an automation selected by its ID")
+    cron_run_parser.add_argument("id", help="The ID of the automation to run")
+    
+    cron_delete_parser = cron_subparser.add_parser("delete", help="Delete an automation selected by its ID")
+    cron_delete_parser.add_argument("id", help="The ID of the automation to delete")
+    
     
     args = parser.parse_args()
     
     setup_logging(args.verbose)
     
     print("""
-██╗         ██████╗    ██╗   ██╗   ██╗   ███████╗   
-██║        ██╔═══██╗   ██║   ██║   ██║   ██╔════╝   
-██║        ██║   ██║   ██║   ██║   ██║   ███████╗   
-██║        ██║   ██║   ██║   ██║   ██║   ╚════██║   
+██╗         ██████╗    ██╗   ██╗   ██╗   ███████╗    
+██║        ██╔═══██╗   ██║   ██║   ██║   ██╔════╝    
+██║        ██║   ██║   ██║   ██║   ██║   ███████╗    
+██║        ██║   ██║   ██║   ██║   ██║   ╚════██║    
 ███████╗██╗╚██████╔╝██╗╚██████╔╝██╗██║██╗███████║██╗
 ╚══════╝╚═╝ ╚═════╝ ╚═╝ ╚═════╝ ╚═╝╚═╝╚═╝╚══════╝╚═╝
-          Lars Usefull Intelligent System
-                                                    """)
+      Lars Usefull Intelligent System
+                                                """)
     print(random.choice(fun_messages))
     print("-" * 80)
     
@@ -254,25 +279,52 @@ if __name__ == "__main__":
     graph = Graph(config.get_value("name"), logger, config)
     
     try:
-        if args.command == "chat":
-            run_tui()
+        match args.command:
+            case "chat":
+                run_tui()
             
-        elif args.command == "api":
-            run_api()
+            case "api":
+                run_api()
+                
+            case "graph":
+                match args.graph_command:
+                    case "write":
+                        write(args.fact)
+                    case "query":
+                        query(args.question)
+                    case "delete":
+                        if args.delete_mode == "node":
+                            delete("node", args.node)
+                        else:
+                            delete("relation", args.subj, args.relation, args.obj)
+                    case "show":
+                        graph.generate_graph_view()
+                        webbrowser.open("graph.html")
+            
+            case "cron":
+                cron_manager = CronManager(logger, config)
+                try:
+                    match args.cron_command:
+                        case "list":
+                            print(cron_manager.list_automations())
+                        case "add":
+                            cron_manager.create_automation(args.name, args.prompt, config.get_value("name"), args.rrule, True)
+                            print("New automation has been created!")
+                        case "update":
+                            cron_manager.update_automation(args.id, args.name, args.prompt, config.get_value("name"), args.rrule, args.is_active)
+                            print("Automation has been updated!")
+                        case "delete":
+                            cron_manager.delete_automation(args.id)
+                            print("Successfully deleted automation!")
+                        case "run":
+                            cron_manager.run_automation(args.id)
+                            print("Automation is now running!")
+                
+                except Exception as e:
+                    print(e)
 
-        elif args.command == "graph":
-            if args.graph_command == "write":
-                write()
-            elif args.graph_command == "query":
-                query()
-            elif args.graph_command == "delete":
-                delete()
-            elif args.graph_command == "show":        
-                graph.generate_graph_view()
-                webbrowser.open("graph.html")
-
-        else:
-            print("Unknown subcommand!")
+            case default:
+                print("Unknown subcommand!")
 
     except KeyboardInterrupt or asyncio.exceptions.CancelledError:
         if tui:
@@ -282,7 +334,7 @@ if __name__ == "__main__":
             while not tui._task_queue.empty():
                 try:
                     tui._task_queue.get_nowait()
-                    tui._task_queue.task_done()  # Mark the task as done (if using join later)
+                    tui._task_queue.task_done()
                 except queue.Empty:
                     break
             
@@ -292,7 +344,7 @@ if __name__ == "__main__":
             while not tui._task_queue.empty():
                 try:
                     tui._task_queue.get_nowait()
-                    tui._task_queue.task_done()  # Mark the task as done (if using join later)
+                    tui._task_queue.task_done()
                 except queue.Empty:
                     break
         print("Ctrl + C detected, stopping program.")
