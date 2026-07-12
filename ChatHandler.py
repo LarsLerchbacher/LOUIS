@@ -340,32 +340,37 @@ Do not acknowledge this command or respond conversationally, just summarize.
         self.agentLLM.messages.append({"role": sender, "content": message})
         
         while not self.askUser:
-            response = self.agentLLM.send()
-            
-            self.session_logger.info(f"Prompt tokens: {response.usage.prompt_tokens}")
-            self.session_logger.info(f"Completion tokens: {response.usage.completion_tokens}")
-            self.session_logger.info(f"Total tokens: {response.usage.total_tokens}")
-            
-            if response.choices[0].message.tool_calls:
-                tool_calls = response.choices[0].message.tool_calls
-                for call in tool_calls:
-                    self.session_logger.tool("Tool call: " + repr(call.function))
-                    try:
-                        tool_response = self.funcs[call.function.name](**json.loads(call.function.arguments))
-                    except KeyError:
-                        tool_response = "Tool not found!"
-                    except Exception as e:
-                        tool_response = str(e)
-                    
-                    self.agentLLM.messages.append({
-                        "role": "tool",
-                        "tool_call_id": call.id,
-                        "name": call.function.name,
-                        "content": str(tool_response) + "\n\n<<REMINDER>>Use the msg tool to communicate with the user. Messages sent any other way won't be visible to them!" 
-                    })
-                    
-                    self.session_logger.tool(str(call.function.name) + ":\n" + str(response))
-            else:
-                self.send_message(response.choices[0].message.content, True)
-                #self.session_logger.assistant(response.choices[0].message.content)
-    
+            try:
+                response = self.agentLLM.send()
+                
+                if response == None:
+                    continue
+                
+                self.session_logger.info(f"Prompt tokens: {response.usage.prompt_tokens}")
+                self.session_logger.info(f"Completion tokens: {response.usage.completion_tokens}")
+                self.session_logger.info(f"Total tokens: {response.usage.total_tokens}")
+                
+                if response.choices[0].message.tool_calls:
+                    tool_calls = response.choices[0].message.tool_calls
+                    for call in tool_calls:
+                        self.session_logger.tool("Tool call: " + repr(call.function))
+                        try:
+                            tool_response = self.funcs[call.function.name](**json.loads(call.function.arguments))
+                        except KeyError:
+                            tool_response = "Tool not found!"
+                        except Exception as e:
+                            tool_response = str(e)
+                        
+                        self.agentLLM.messages.append({
+                            "role": "tool",
+                            "tool_call_id": call.id,
+                            "name": call.function.name,
+                            "content": str(tool_response) + "\n\n<<REMINDER>>Use the msg tool to communicate with the user. Messages sent any other way won't be visible to them!" 
+                        })
+                        
+                        self.session_logger.tool(str(call.function.name) + ":\n" + str(tool_response))
+                else:
+                    self.send_message(response.choices[0].message.content, True)
+
+            except Exception as e:
+                self.send_message(f"An error occured while processing your request: {e}", True)

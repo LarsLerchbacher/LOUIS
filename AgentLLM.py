@@ -1,5 +1,6 @@
 from Config import Config
 from mistralai.client import Mistral
+from mistralai.client.errors.sdkerror import SDKError
 import json
 import os
 from datetime import datetime
@@ -15,21 +16,7 @@ class AgentLLM():
         self.summary = ""
 
         self.prompt = f"""
-You can message the user using the msg tool. i
-You should message them regularly to tell them, what you are currently doing.
-If the user should respond to your message, use the isQuestion parameter of the msg tool.
-
-You have access to a 'exec_shell' tool that can run shell commands.
-Except from the default commands, there should be documentation in the capabilities directory ({os.path.join(os.curdir, "capabilities")}) on how to do
-user and system specific tasks. If you do not know, how to do something, ask the user.
-If you are asked to execute a task and are unsure which programs are available or should be used, look in the capabilities subdirectory first (current workdir subdir)
-or ask the user.
-
-The mem_write tool should be given only very simple facts. Preferably one fact per sentence. Use _ instead of spaces in words, that have a space in them.
-The mem_get tool has an intent parameter, defining the search behaviour. use WHO, WHY, WHAT, HOW, RELATE or DEFAULT.
-the mem_delete tool has a mode, which is either NODE or RELATION. Subj is the node to delete or the relations subj. the other parameters only apply to relations.
-
-Your memory stores everything in lowercase. When using paths from your memory, use ```find / -ipath <path>``` to get the correct path.
+You are an AI assistant with access to tools for executing commands, managing memory, and communicating with the user. Use the msg tool to provide updates or ask questions. The exec_shell tool runs shell commands, while the mem_write, mem_get, and mem_del tools manage memory. Information not stored in memory will not survive session changes or reboots. Always write important information you just learned to memory. For user or system-specific tasks, refer to the documentation in the ./capabilities directory. If unsure how to proceed, consult the capabilities documentation or ask the user. Your responses should be detailed, clear, and tailored to the user's needs.
 
 You should adapt the following persona:
 {self.config.get_value("persona")}
@@ -66,33 +53,39 @@ Your user is named {self.config.get_value("username")}
                 for tool in self.tools
             ]
 
-        response = self.client.chat.complete(
-            model=self.model,
-            messages=self.messages,
-            tools=tools_schema,
-            temperature=int(self.config.get_value("temperature") or 1.0),
-        )
-        
-        # Extract the assistant's message
-        assistant_message = response.choices[0].message
-
-        # Append the assistant's message to the messages list
-        if assistant_message.content or assistant_message.tool_calls:
-            self.messages.append({
-                "role": "assistant",
-                "content": assistant_message.content,
-                "tool_calls": assistant_message.tool_calls
-            })
-        else:
-            self.messages.append({"role": "assistant", "content": "<<System message>>The last request did not generate an assistant response.<</System message>>"})
-        
-        old_in_token = self.config.get_value("input-tokens")
-        old_out_token = self.config.get_value("completions-tokens")
-        old_total_token = self.config.get_value("total-tokens")
-        self.config.set_value("input-tokens", old_in_token + response.usage.prompt_tokens)
-        self.config.set_value("completions-tokens", old_in_token + response.usage.completion_tokens)
-        self.config.set_value("total-tokens", old_in_token + response.usage.total_tokens)
-        self.config.write()
+        try:
+            response = self.client.chat.complete(
+                model=self.model,
+                messages=self.messages,
+                tools=tools_schema,
+                temperature=int(self.config.get_value("temperature") or 1.0),
+            )
+            
+            # Extract the assistant's message
+            assistant_message = response.choices[0].message
+            
+            # Append the assistant's message to the messages list
+            if assistant_message.content or assistant_message.tool_calls:
+                self.messages.append({
+                    "role": "assistant",
+                    "content": assistant_message.content,
+                    "tool_calls": assistant_message.tool_calls
+                })
+            else:
+                self.messages.append({"role": "assistant", "content": "<<System message>>The last request did not generate an assistant response.<</System message>>"})
+            
+            old_in_token = self.config.get_value("input-tokens")
+            old_out_token = self.config.get_value("completions-tokens")
+            old_total_token = self.config.get_value("total-tokens")
+            self.config.set_value("input-tokens", old_in_token + response.usage.prompt_tokens)
+            self.config.set_value("completions-tokens", old_in_token + response.usage.completion_tokens)
+            self.config.set_value("total-tokens", old_in_token + response.usage.total_tokens)
+            self.config.write()
+            
+        except SDKError as e:
+            print(f"ERROR: {e}")
+            self.messages.append({"role": "assistant", "content": f"<<System message>> An error occurred while processing your request. {e}"})
+            response = None
 
         return response
 
@@ -104,5 +97,3 @@ Your user is named {self.config.get_value("username")}
         
         if summary:
             self.messages.append({"role": "assistant", "content": "What happened before: " + self.summary})
-        self.tools_sent = False
-
