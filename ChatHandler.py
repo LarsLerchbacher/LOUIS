@@ -58,12 +58,12 @@ class ChatHandler:
                     "type": "object",
                     "properties": {
                         "content": {"type": "string"},
-                        "isQuestion": {
+                        "waitForUser": {
                             "type": "boolean",
-                            "description": "Should the user need to answer to this message? Set to False for status updates, to True for questions."
+                            "description": "Should the user need to answer to this message? Set to False for status updates or other messages between task."
                         }
                     },
-                    "required": ["content", "isQuestion"]
+                    "required": ["content", "waitForUser"]
                 }
             },
             {
@@ -147,7 +147,7 @@ class ChatHandler:
         self.agentLLM = AgentLLM(self.config.get_value("chat-model"), self.config, self.tools)
         self.logger.info(f"System prompt: {self.agentLLM.prompt}")
         
-    def send_message(self, content: str, isQuestion: bool = False) -> str:
+    def send_message(self, content: str, waitForUser: bool = False) -> str:
         """
         Send a message to the user.
         
@@ -158,7 +158,7 @@ class ChatHandler:
         Returns:
             str: A confirmation message.
         """
-        self.askUser = isQuestion
+        self.askUser = waitForUser
         self.session_logger.assistant(content)
         self.response = content
         
@@ -169,8 +169,6 @@ class ChatHandler:
         old_message_calls = self.config.get_value("message-calls")
         self.config.set_value("message-calls", old_message_calls + 1)
         
-        self.agentLLM.messages.append({"role": "assistant", "content": content})
-
         self.config.write()
         
         return "delivered"
@@ -370,7 +368,18 @@ Do not acknowledge this command or respond conversationally, just summarize.
                         
                         self.session_logger.tool(str(call.function.name) + ":\n" + str(tool_response))
                 else:
-                    self.send_message(response.choices[0].message.content, True)
+                    # The message is already appended in AgentLLM.send, so we only send it to the user
+                    self.askUser = True
+                    self.session_logger.assistant(response.choices[0].message.content)
+                    self.response = response.choices[0].message.content
+                    
+                    if self.response_queue and self.event_loop:
+                        self.event_loop.call_soon_threadsafe(self.response_queue.put_nowait, response.choices[0].message.content)
+                    
+                    # Update stats
+                    old_message_calls = self.config.get_value("message-calls")
+                    self.config.set_value("message-calls", old_message_calls + 1)
+                    self.config.write()
 
             except Exception as e:
                 self.send_message(f"An error occured while processing your request: {e}", True)

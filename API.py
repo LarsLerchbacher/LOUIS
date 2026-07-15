@@ -169,7 +169,6 @@ class API:
                 cursor.execute("INSERT INTO chats (identifier, messages) VALUES ( ?, ?);", (chat_id, str(self.chat.agentLLM.messages)))
             else:
                 self.chat.agentLLM.messages = eval(cursor.execute("SELECT messages FROM chats WHERE identifier == ?;", (chat_id, )).fetchone()[0])
-                self.logger.info(self.chat.agentLLM.messages)
                 user_message = data["messages"][-1]["content"]
 
             async def process_input():
@@ -208,8 +207,6 @@ class API:
                         }]
                     })}\n\n"
                 
-                #cursor.execute("UPDATE chats SET messages = ? WHERE identifier == ?;", (str(self.get_chat_history(chat_id)), chat_id))
-                self.logger.warn(self.chat.agentLLM.messages)
                 cursor.execute("UPDATE chats SET messages = ? WHERE identifier == ?;", (str(self.chat.agentLLM.messages), chat_id))
 
                 db.commit()
