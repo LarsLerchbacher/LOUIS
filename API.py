@@ -254,6 +254,7 @@ Do not acknowledge this command or respond conversationally, just summarize.
                 user_message = data["messages"][-1]["content"]
                 has_user_message = True
                 cursor.execute("INSERT INTO chats (identifier, messages) VALUES ( ?, ?);", (chat_id, str(self.chat.agentLLM.messages)))
+                await response_queue.put(f"Hello! I'm {self.config.get_value("name")}, your token-efficient AI assistant based on the LOUIS project. My source code is available under the AGPL license: https://github.com/LarsLerchbacher/LOUIS")
             else:
                 self.chat.agentLLM.messages = eval(cursor.execute("SELECT messages FROM chats WHERE identifier == ?;", (chat_id, )).fetchone()[0])
                 user_message = data["messages"][-1]["content"]

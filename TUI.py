@@ -50,6 +50,8 @@ class TUI():
 
     def tui_chat(self):
         """Handle chat in the TUI with threading"""
+        self.session_logger.assistant(f"Hello! I'm {self.config.get_value("name")}, your token-efficient AI assistant based on the LOUIS project. My source code is available under the AGPL license: https://github.com/LarsLerchbacher/LOUIS")
+
         response_queue = queue.Queue()
 
         while True:
