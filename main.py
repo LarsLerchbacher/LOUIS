@@ -351,7 +351,12 @@ if __name__ == "__main__":
                             delete("relation", args.subj, args.relation, args.obj)
                     case "show":
                         graph.generate_graph_view()
-                        webbrowser.open("graph.html")
+
+                        xdg_data_home = os.environ.get("XDG_DATA_HOME") or os.path.expanduser("~/.local/share/")
+                        data_dir = os.path.join(xdg_data_home, "louis")
+                        os.makedirs(data_dir, exist_ok=True)
+
+                        webbrowser.open(os.path.join("graph.html", data_dir))
             
             case "cron":
                 cron_manager = CronManager(logger, config)

@@ -545,7 +545,11 @@ class Graph:
         for src, relation, tgt, weight in edges:
             net.add_edge(src, tgt, label=relation, title=f"weight: {weight:.3f}")
         
-        net.save_graph("graph.html")
+        xdg_data_home = os.environ.get("XDG_DATA_HOME") or os.path.expanduser("~/.local/share/")
+        data_dir = os.path.join(xdg_data_home, "louis")
+        os.makedirs(data_dir, exist_ok=True)
+
+        net.save_graph(os.path.join("graph.html", data_dir))
     
     def parse_intent(self, q: str) -> str:
         ql = q.lower()
