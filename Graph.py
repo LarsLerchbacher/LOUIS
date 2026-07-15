@@ -549,7 +549,7 @@ class Graph:
         data_dir = os.path.join(xdg_data_home, "louis")
         os.makedirs(data_dir, exist_ok=True)
 
-        net.save_graph(os.path.join("graph.html", data_dir))
+        net.save_graph(os.path.join(data_dir, "graph.html"))
     
     def parse_intent(self, q: str) -> str:
         ql = q.lower()
