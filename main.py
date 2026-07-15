@@ -22,9 +22,10 @@ from Node import Node
 from Relation import Relation
 from TUI import TUI
 from API import API
+from State import State
 from cron import CronManager
 
-global graph, input_llm, logger, config, agentLLM, waitForUser, running_process, tui, api
+global graph, input_llm, logger, config, agentLLM, waitForUser, running_process, tui, api, state
 running_process = None
 fun_messages = [
     "Warning: High levels of sarcasm detected. Proceed with caution.",
@@ -227,19 +228,19 @@ def start_session_log():
 
 def run_api():
     """Run the API server."""
-    global config, logger, session_logger, api
+    global config, logger, session_logger, api, state
     start_session_log()
-    api = API(host="0.0.0.0", port=8000, config=config, logger=logger, session_logger=session_logger)
+    api = API(host="0.0.0.0", port=8000, config=config, logger=logger, session_logger=session_logger, state=state)
     api.run()
 
 def run_tui():
     """Run the Text User Interface."""
-    global config, logger, session_logger, tui
+    global config, logger, session_logger, tui, state
     start_session_log()
-    tui = TUI(logger, session_logger, config)
+    tui = TUI(logger, session_logger, config, state)
 
 if __name__ == "__main__":
-    global graph, input_llm, logger, config, agentLLM, tui, api, cron_manager
+    global graph, input_llm, logger, config, agentLLM, tui, api, cron_manager, state
     
     parser = argparse.ArgumentParser(
         prog="louis",
@@ -311,7 +312,7 @@ if __name__ == "__main__":
 ██║        ██║   ██║   ██║   ██║   ██║   ╚════██║    
 ███████╗██╗╚██████╔╝██╗╚██████╔╝██╗██║██╗███████║██╗
 ╚══════╝╚═╝ ╚═════╝ ╚═╝ ╚═════╝ ╚═╝╚═╝╚═╝╚══════╝╚═╝
-    Lars Optimized Usefull Intelligent System
+     Lars Optimized Usefull Intelligent System
                                                 """)
     print(random.choice(fun_messages))
     print("-" * 80)
@@ -319,6 +320,10 @@ if __name__ == "__main__":
     config = Config(logger)
     
     if config.load() != 0:
+        quit(1)
+    
+    state = State(logger)
+    if state.load() != 0:
         quit(1)
     
     xdg_state_home = os.environ.get("XDG_STATE_HOME") or os.path.expanduser("~/.local/state")

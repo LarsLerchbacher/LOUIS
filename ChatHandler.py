@@ -13,7 +13,7 @@ class ChatHandler:
     This class manages the chat session, including tools, functions, and the agent LLM.
     """
     
-    def __init__(self, config, logger, session_logger):
+    def __init__(self, config, logger, session_logger, state):
         """
         Initialize the ChatHandler with configuration, logger, and session logger.
         
@@ -21,10 +21,12 @@ class ChatHandler:
             config: Configuration object containing settings for the chat model and other parameters.
             logger: Logger object for general logging.
             session_logger: Logger object for session-specific logging.
+            state: State object for managing state data.
         """
         self.config = config
         self.logger = logger
         self.session_logger = session_logger
+        self.state = state
         self.agentLLM = None
         self.askUser = True
         self.tools = []
@@ -146,7 +148,7 @@ class ChatHandler:
         Initialize the agent LLM with the configured model and tools.
         """
         from AgentLLM import AgentLLM  # Assuming this is imported from a module
-        self.agentLLM = AgentLLM(self.config.get_value("chat-model"), self.config, self.tools)
+        self.agentLLM = AgentLLM(self.config.get_value("chat-model"), self.config, self.tools, self.state)
         self.logger.info(f"System prompt: {self.agentLLM.prompt}")
         
     def send_message(self, content: str, waitForUser: bool = False) -> str:
@@ -168,10 +170,10 @@ class ChatHandler:
             self.event_loop.call_soon_threadsafe(self.response_queue.put_nowait, content)
         
         # Update stats
-        old_message_calls = self.config.get_value("message-calls")
-        self.config.set_value("message-calls", old_message_calls + 1)
+        old_message_calls = self.state.get_value("message-calls")
+        self.state.set_value("message-calls", old_message_calls + 1)
         
-        self.config.write()
+        self.state.write()
         
         return "delivered"
         
@@ -179,9 +181,9 @@ class ChatHandler:
         self.graph.query(subj, intent)
         
         # update stats
-        old_mem_get_calls = self.config.get_value("memory_get-calls")
-        self.config.set_value("memory_get-calls", old_mem_get_calls + 1)
-        self.config.write()
+        old_mem_get_calls = self.state.get_value("memory_get-calls")
+        self.state.set_value("memory_get-calls", old_mem_get_calls + 1)
+        self.state.write()
         
         return self.graph.generate_context()
 
@@ -189,9 +191,9 @@ class ChatHandler:
         self.graph.write(text)
         
         # update stats
-        old_mem_write_calls = self.config.get_value("memory_write-calls")
-        self.config.set_value("memory_write-calls", old_mem_write_calls + 1)
-        self.config.write()
+        old_mem_write_calls = self.state.get_value("memory_write-calls")
+        self.state.set_value("memory_write-calls", old_mem_write_calls + 1)
+        self.state.write()
         
         return "Successfully wrote to memory"
 
@@ -201,9 +203,9 @@ class ChatHandler:
             self.graph.db.commit()
             
             # update stats
-            old_mem_del_calls = self.config.get_value("memory_delete-calls")
-            self.config.set_value("memory_delete-calls", old_mem_del_calls + 1)
-            self.config.write() 
+            old_mem_del_calls = self.state.get_value("memory_delete-calls")
+            self.state.set_value("memory_delete-calls", old_mem_del_calls + 1)
+            self.state.write() 
             
             return f"Deleted '{subj}'"
         elif mode == "RELATION":
@@ -234,9 +236,9 @@ class ChatHandler:
             text=True)
         
         # update stats
-        old_shell_calls = self.config.get_value("exec_shell-calls")
-        self.config.set_value("exec_shell-calls", old_shell_calls + 1)
-        self.config.write()  
+        old_shell_calls = self.state.get_value("exec_shell-calls")
+        self.state.set_value("exec_shell-calls", old_shell_calls + 1)
+        self.state.write()  
         
         try:
             stdout, stderr = self.running_process.communicate(timeout=30)
@@ -293,8 +295,8 @@ Do not acknowledge this command or respond conversationally, just summarize.
 
             if resp_text != "No significant updates since last summary.":
                 self.agentLLM.summary += "\n" + resp_text
-                self.config.set_value("last_summary", self.agentLLM.summary)
-                self.config.write()
+                self.state.set_value("last_summary", self.agentLLM.summary)
+                self.state.write()
             
             self.agentLLM.reset(True)  
            
@@ -354,6 +356,14 @@ Do not acknowledge this command or respond conversationally, just summarize.
                 self.session_logger.info(f"Completion tokens: {response.usage.completion_tokens}")
                 self.session_logger.info(f"Total tokens: {response.usage.total_tokens}")
                 
+                # Send a context size warning
+                if response.usage.total_tokens > 131072 * (self.config.get_value("context_warn_percentage") / 100):
+                    warning = f"WARNING: The current session's context size has reached {self.config.get_value("context_warn_percentage")}% of the models context window. It is recommended to either start a new session or summarizing the current chat (to work with only the summarization) by typing '/reset'. Exceeding the context window will cause the program to crash / not respond properly."
+                    if self.event_loop and self.response_queue:
+                        self.event_loop.call_soon_threadsafe(self.response_queue.put_nowait, warning)
+                    else:
+                        self.session_logger.assistant(warning)
+                
                 if response.choices[0].message.tool_calls:
                     tool_calls = response.choices[0].message.tool_calls
                     for call in tool_calls:
@@ -383,9 +393,9 @@ Do not acknowledge this command or respond conversationally, just summarize.
                         self.event_loop.call_soon_threadsafe(self.response_queue.put_nowait, response.choices[0].message.content)
                     
                     # Update stats
-                    old_message_calls = self.config.get_value("message-calls")
-                    self.config.set_value("message-calls", old_message_calls + 1)
-                    self.config.write()
+                    old_message_calls = self.state.get_value("message-calls")
+                    self.state.set_value("message-calls", old_message_calls + 1)
+                    self.state.write()
 
             except Exception as e:
                 self.send_message(f"An error occured while processing your request: {e}", True)

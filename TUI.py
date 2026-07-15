@@ -12,17 +12,19 @@ class TUI():
     
     This class handles the TUI chat interface, including user input and displaying responses.
     """
-    def __init__(self, logger: logging.Logger, session_logger: logging.Logger, config: Config):
+    def __init__(self, logger: logging.Logger, session_logger: logging.Logger, config: Config, state=None):
         """Initialize the TUI with a logger, session logger, and configuration.
         
         Args:
             logger (logging.Logger): The logger for logging messages.
             session_logger (logging.Logger): The logger for session-specific logging.
             config (Config): The configuration object for the application.
+            state (State): The state object for managing state data.
         """
         self.logger = logger
         self.session_logger = session_logger
         self.config = config
+        self.state = state
         self.tui_chat()
         
 
@@ -38,7 +40,7 @@ class TUI():
 
     def run_chat_handler(self, user_input, stop_event, response_queue):
         """Run the ChatHandler in a separate thread and stream responses from the queue."""
-        self.chat = ChatHandler(self.config, self.logger, self.session_logger)
+        self.chat = ChatHandler(self.config, self.logger, self.session_logger, self.state)
         self.chat.initialize()
         async def chat():
             self.chat.handle_user_input(user_input, response_queue)

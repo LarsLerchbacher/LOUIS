@@ -13,16 +13,19 @@ class AgentLLM():
     and generates responses based on user input and system configuration.
     """
 
-    def __init__(self, model: str, config: Config, tools):
+
+    def __init__(self, model: str, config: Config, tools, state):
         """Initialize the AgentLLM with a model, configuration, and tools.
         
         Args:
             model (str): The model to use for generating responses.
             config (Config): The configuration object for the application.
             tools (list): A list of tools available for the agent to use.
+            state (State): The state object for managing state data.
         """
         self.model = model
         self.config = config
+        self.state = state
         self.summary = ""
         
         xdg_conf_home = os.environ.get("XDG_CONFIG_HOME") or os.path.expanduser("~/.config")
@@ -54,7 +57,7 @@ Your user is named {self.config.get_value("username")}
         self.messages = [{"role": "system", "content": self.prompt}]
         self.tools = tools
         self.client = Mistral(api_key=self.config.get_value("mistral_api_key"))
-        self.summary = self.config.get_value("last_summary") or ""
+        self.summary = self.state.get_value("last_summary") or ""
         self.last_message = datetime.fromisoformat("1970-01-01T00:00:00")
         self.delay = int(self.config.get_value("request_delay_ms")) / 100
 
@@ -102,13 +105,13 @@ Your user is named {self.config.get_value("username")}
             else:
                 self.messages.append({"role": "assistant", "content": "<<System message>>The last request did not generate an assistant response.<</System message>>"})
             
-            old_in_token = self.config.get_value("input-tokens")
-            old_out_token = self.config.get_value("completions-tokens")
-            old_total_token = self.config.get_value("total-tokens")
-            self.config.set_value("input-tokens", old_in_token + response.usage.prompt_tokens)
-            self.config.set_value("completions-tokens", old_in_token + response.usage.completion_tokens)
-            self.config.set_value("total-tokens", old_in_token + response.usage.total_tokens)
-            self.config.write()
+            old_in_token = self.state.get_value("input-tokens")
+            old_out_token = self.state.get_value("completions-tokens")
+            old_total_token = self.state.get_value("total-tokens")
+            self.state.set_value("input-tokens", old_in_token + response.usage.prompt_tokens)
+            self.state.set_value("completions-tokens", old_in_token + response.usage.completion_tokens)
+            self.state.set_value("total-tokens", old_in_token + response.usage.total_tokens)
+            self.state.write()
             
         except SDKError as e:
             print(f"ERROR: {e}")

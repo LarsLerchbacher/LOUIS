@@ -20,7 +20,7 @@ class API:
     This class provides an API interface for the AI, allowing external applications
     to interact with the AI model via HTTP requests.
     """
-    def __init__(self, host: str = "0.0.0.0", port: int = 8000, config = None, logger=None, session_logger=None):
+    def __init__(self, host: str = "0.0.0.0", port: int = 8000, config = None, logger=None, session_logger=None, state=None):
         """Initialize the API with a host, port, configuration, and loggers.
         
         Args:
@@ -29,12 +29,14 @@ class API:
             config (Config): The configuration object for the application.
             logger (logging.Logger): The logger for logging messages.
             session_logger (logging.Logger): The logger for session-specific logging.
+            state (State): The state object for managing state data.
         """
         self.app = FastAPI()
         self.host = host
         self.config = config
         self.logger = logger
         self.session_logger=session_logger
+        self.state = state
         self.port = port 
         self._setup_routes()
         
@@ -70,7 +72,7 @@ class API:
     
     def initialize(self):
         
-        self.chat = ChatHandler(self.config, self.logger, self.session_logger)
+        self.chat = ChatHandler(self.config, self.logger, self.session_logger, self.state)
         self.chat.initialize() 
         
         db, cursor = self.init_db()
