@@ -449,10 +449,14 @@ class Graph:
             self.save_node(node_name)
 
     def generate_graph_view(self):
-        net = Network(height="900px", width="100%", directed=True,  bgcolor = "#222222", font_color = "white", select_menu=True, filter_menu=True)
+        net = Network(height="900px", width="100%", directed=True,  bgcolor = "#222222", font_color = "white", select_menu=False, filter_menu=False)
         
         nodes = self.cursor.execute(
-            "SELECT name, activation FROM nodes ORDER BY activation DESC;").fetchall()
+            """SELECT DISTINCT subj AS node_name FROM relations
+            LEFT JOIN nodes ON relations.subj = nodes.name
+            UNION
+            SELECT DISTINCT obj AS node_name FROM relations
+            LEFT JOIN nodes ON relations.obj = nodes.name;""").fetchall()
         
         edges = self.cursor.execute(
             """SELECT e.subj, e.name, e.obj, e.weight 
@@ -461,8 +465,8 @@ class Graph:
                AND e.obj IN (SELECT name FROM nodes ORDER BY activation DESC)""",
         ).fetchall()
         
-        for name, activation in nodes:
-            net.add_node(name, label=name, title=f"activation: {activation}")
+        for name in [row[0] for row in nodes]:
+            net.add_node(name, label=name, title=name)
         
         for src, relation, tgt, weight in edges:
             net.add_edge(src, tgt, label=relation, title=f"weight: {weight:.3f}")
@@ -505,6 +509,7 @@ class Graph:
             self.stack.add((node, 1.0, 0))
         
         self.add_activation(nodes[0], 1.0, False, intent)
+        self.generate_graph_view()
     
     def parse_nodes(self, text: str) -> list[str]:
         text = text.lower()
