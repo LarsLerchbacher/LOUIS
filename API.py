@@ -255,7 +255,14 @@ class API:
             )
 
     def run(self):
-        uvicorn.run(self.app, host=self.host, port=self.port)
+        """Run the Uvicorn server with a shorter timeout for faster shutdown."""
+        uvicorn.run(
+            self.app,
+            host=self.host,
+            port=self.port,
+            timeout_keep_alive=5,  # Reduce keep-alive timeout
+            timeout_graceful_shutdown=2  # Reduce graceful shutdown timeout
+        )
 
 if __name__ == "__main__":
     # This block is just for testing; actual usage is through main.py

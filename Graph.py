@@ -30,6 +30,8 @@ class Graph:
         """
         self.name = name
         self.nodes = {}
+        self.logger = logger
+        self.config = config
         self.fired_nodes = []
         self.stack = set()
         self.threshold = 0.5
@@ -224,12 +226,16 @@ class Graph:
             name = row[0]
             node = self.get_node(name)
             for rel in self.get_relations(node):
-                last_dec = rel.get_last_decayed()
-                delta = datetime.now() - datetime.fromisoformat(last_dec)
-                modifier = 0.999 ** delta.days
-                rel.set_weight(rel.get_weight() * modifier)
-                rel.set_last_decayed(datetime.now())
-                self.save_relation(rel)
+                try:
+                    last_dec = rel.get_last_decayed()
+                    delta = datetime.now() - datetime.fromisoformat(last_dec)
+                    modifier = 0.999 ** delta.days
+                    rel.set_weight(rel.get_weight() * modifier)
+                except (Exception, TypeError):
+                    pass
+                finally:
+                    rel.set_last_decayed(datetime.now())
+                    self.save_relation(rel)
 
     def reduce_activation(self) -> None:
         """Dampen all node activations to 20% of their current value."""
@@ -461,13 +467,17 @@ class Graph:
             "SELECT id FROM relations WHERE subj = ? AND name = ? AND obj = ?;",
             (subj, rel, obj)
         ).fetchone()
-        self.close_db()
 
-        if row == None:
-            self.add_relation(subj, rel, obj)
+        if row is None:
+            self.cursor.execute(
+                "INSERT INTO relations (subj, name, obj, weight, last_fired, last_decayed) VALUES (?, ?, ?, ?, ?, ?);",
+                (subj, rel, obj, 0.5, datetime.now().isoformat(), datetime.now().isoformat())
+            )
             relation_id = self.cursor.lastrowid
         else:
             relation_id = row[0]
+
+        self.close_db()
 
         self.strengthen_relation(self.get_node(subj), self.get_relation_by_id(relation_id), 0)
         self.update_known()

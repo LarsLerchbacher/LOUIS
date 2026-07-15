@@ -378,26 +378,22 @@ if __name__ == "__main__":
             case default:
                 print("Unknown subcommand!")
 
-    except KeyboardInterrupt or asyncio.exceptions.CancelledError:
-        if tui:
+    except (KeyboardInterrupt, asyncio.exceptions.CancelledError) as e:
+        print("\nCtrl + C detected. Shutting down immediately...")
+        
+        # Forcefully terminate the TUI and API threads
+        if 'tui' in globals() and tui:
             tui.stop_event.set()
-            tui.task.cancel()
-            tui.chat_thread.join()
-            while not tui._task_queue.empty():
-                try:
-                    tui._task_queue.get_nowait()
-                    tui._task_queue.task_done()
-                except queue.Empty:
-                    break
-            
-        if api:
+            if hasattr(tui, 'task') and tui.task:
+                tui.task.cancel()
+            if hasattr(tui, 'chat_thread') and tui.chat_thread:
+                # Do not join the thread to avoid waiting
+                pass
+        
+        if 'api' in globals() and api:
             api.done.set()
-            api.task.cancel()
-            while not tui._task_queue.empty():
-                try:
-                    tui._task_queue.get_nowait()
-                    tui._task_queue.task_done()
-                except queue.Empty:
-                    break
-        print("Ctrl + C detected, stopping program.")
+            if hasattr(api, 'task') and api.task:
+                api.task.cancel()
+        
+        print("Shutdown complete.")
         quit(0)

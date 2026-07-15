@@ -70,9 +70,36 @@ class TUI():
                 thinking_thread.start()
                 chat_thread.start()
                 
-                thinking_thread.join()
-                chat_thread.join()
+                # Join threads with a timeout to allow for keyboard interrupts
+                while thinking_thread.is_alive() or chat_thread.is_alive():
+                    try:
+                        thinking_thread.join(timeout=0.1)
+                        chat_thread.join(timeout=0.1)
+                    except KeyboardInterrupt:
+                        print("\nCtrl + C detected. Stopping program immediately...")
+                        
+                        # Set the stop event to signal threads to stop
+                        self.stop_event.set()
+                        
+                        # Cancel any ongoing tasks
+                        if hasattr(self, 'task') and self.task:
+                            self.task.cancel()
+                        
+                        # Forcefully terminate the threads
+                        thinking_thread.join(timeout=0.1)
+                        chat_thread.join(timeout=0.1)
+                        
+                        break
                 
             except KeyboardInterrupt:
-                print("\nCtrl + C detected. Stopping program")
+                print("\nCtrl + C detected. Stopping program immediately...")
+                
+                # Set the stop event to signal threads to stop
+                if 'stop_event' in locals():
+                    self.stop_event.set()
+                
+                # Cancel any ongoing tasks
+                if hasattr(self, 'task') and self.task:
+                    self.task.cancel()
+                
                 break
