@@ -7,6 +7,7 @@ from Graph import Graph
 import re
 import json
 import asyncio
+import os
 import threading
 import queue
 import sqlite3
@@ -37,13 +38,28 @@ class API:
             task()
             self.done.set() 
     
+
+    def init_db(self):
+        xdg_data_home = os.environ.get("XDG_DATA_HOME") or os.path.expanduser("~/.local/share")
+        data_dir = os.path.join(xdg_data_home, "louis")
+        os.makedirs(data_dir, exist_ok=True)
+        
+        db = sqlite3.connect(os.path.join(data_dir, "chats.sqlite"))
+        cursor = sqlite3.Cursor(db)
+        
+        return db, cursor
+
+    def close_db(self, db, cursor):
+        db.commit()
+        cursor.close()
+        db.close()
+    
     def initialize(self):
         
         self.chat = ChatHandler(self.config, self.logger, self.session_logger)
         self.chat.initialize() 
         
-        db = sqlite3.connect("database.sqlite")
-        cursor = sqlite3.Cursor(db)
+        db, cursor = self.init_db()
         
         cursor.execute("""CREATE TABLE IF NOT EXISTS chats (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -51,9 +67,7 @@ class API:
             messages STRING 
         );""")
         
-        db.commit()
-        cursor.close()
-        db.close()
+        self.close_db(db, cursor)
         
         self.base_url = str(self.config.get_value("openwebui_url")) + "/api/v1"
         self.token = self.config.get_value('openwebui_token')
@@ -88,8 +102,7 @@ class API:
         return msgs
     
     def clean_up_chats(self):
-        db = sqlite3.connect("database.sqlite")
-        cursor = sqlite3.Cursor(db)
+        db, cursor = self.init_db()
 
         chats = requests.get(self.base_url + "/chats/?page=1", headers=self._get_headers(), verify=self.ca_cert).json()
         open_webui_ids = [chat["id"] for chat in chats]
@@ -97,10 +110,8 @@ class API:
             if chat_id not in open_webui_ids:
                 cursor.execute("DELETE FROM chats WHERE identifier == ?;", (chat_id, ))
         
-        db.commit()
-        cursor.close()
-        db.close()
-    
+        self.close_db(db, cursor)
+
     def safe_json_loads(self, s):
         """Necesary to avoid problems when the LLM uses newlines"""
         s = s.replace("\n", "\\n") # Replace actual newlines with python escape sequence
@@ -115,8 +126,7 @@ class API:
             self.clean_up_chats()
             data = await request.json()
             
-            db = sqlite3.connect("database.sqlite")
-            cursor = sqlite3.Cursor(db)
+            db, cursor = self.init_db()
             
             # TODO: Get openwebui chat id by reading chat list and comparing conversations with current messages
             chat_id = None
@@ -209,9 +219,7 @@ class API:
                 
                 cursor.execute("UPDATE chats SET messages = ? WHERE identifier == ?;", (str(self.chat.agentLLM.messages), chat_id))
 
-                db.commit()
-                cursor.close()
-                db.close()
+                self.close_db(db, cursor)
 
             return StreamingResponse(generate(), media_type="text/event-stream")
         

@@ -124,8 +124,10 @@ def tool(self, message, *args, **kwargs):
 
 def setup_logging(verbose: bool = False):
     global logger, session_logger, config
-    """Initialize logging to timestamped files under logs/."""
-    log_dir = "logs"
+    """Initialize logging to timestamped files under XDG_STATE_HOME/louis/logs/."""
+
+    xdg_state_home = os.environ.get("XDG_STATE_HOME") or os.path.expanduser("~/.local/state")
+    log_dir = os.path.join(xdg_state_home, "louis", "logs")
     os.makedirs(log_dir, exist_ok=True)
     
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
@@ -155,7 +157,8 @@ def start_session_log():
     
     session_logger = logging.getLogger("session")
     
-    log_dir = "sessions"
+    xdg_state_home = os.environ.get("XDG_STATE_HOME") or os.path.expanduser("~/.local/state")
+    log_dir = os.path.join(xdg_state_home, "louis", "sessions")
     os.makedirs(log_dir, exist_ok=True)
     
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")

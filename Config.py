@@ -9,7 +9,11 @@ class Config():
 
         def load(self) -> int:
                 try:
-                        with open("config.json", mode="r+") as file:
+                        xdg_conf_home = os.environ.get("XDG_CONFIG_HOME") or os.path.expanduser("~/.config")
+                        conf_dir = os.path.join(xdg_conf_home, "louis")
+                        os.makedirs(conf_dir, exist_ok=True)
+
+                        with open(os.path.join(conf_dir, "config.json"), mode="r+") as file:
                                 data = file.read()
                         self.data = json.loads(data)
                         return 0
@@ -21,7 +25,11 @@ class Config():
                         return -1
         
         def write(self) -> None:
-                with open("config.json", mode="w") as file:
+                xdg_conf_home = os.environ.get("XDG_CONFIG_HOME") or os.path.expanduser("~/.config")
+                conf_dir = os.path.join(xdg_conf_home, "louis")
+                os.makedirs(conf_dir, exist_ok=True)
+
+                with open(os.path.join(conf_dir, "config.json"), mode="w") as file:
                         file.write(json.dumps(self.data))
         
         def get_value(self, key: str) -> str:

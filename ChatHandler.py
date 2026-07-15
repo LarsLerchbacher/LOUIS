@@ -314,7 +314,11 @@ Do not acknowledge this command or respond conversationally, just summarize.
 
 
     def inject_capabilities(self, message):
-        for row in os.walk(os.path.join(os.curdir, "capabilities")):
+        xdg_data_home = os.environ.get("XDG_DATA_HOME") or os.path.expanduser("~/.local/share")
+        cap_dir = os.path.join(xdg_data_home, "louis", "capabilities")
+        os.makedirs(cap_dir, exist_ok=True)
+
+        for row in os.walk(cap_dir):
             dirpath = row[0]
             filenames = row[2]
             for filename in filenames:

@@ -50,16 +50,28 @@ class Graph:
         self.update_known()
         self.decay_relations()
         self.reduce_activation()
+    
+    def init_db(self):
+        xdg_data_home = os.environ.get("XDG_DATA_HOME") or os.path.expanduser("~/.local/share")
+        data_dir = os.path.join(xdg_data_home, "louis")
+        os.makedirs(data_dir, exist_ok=True)
+        
+        self.db = sqlite3.connect(os.path.join(data_dir, "graph.sqlite"))
+        self.db.isolation_level = None
+        self.cursor = self.db.cursor()
+        
+    def close_db(self):
+        self.db.commit()
+        self.cursor.close()
+        self.db.close()
 
     def setup_db(self):
         """Initialize the temporary SQLite database for relation persistence.
 
         Recreates the database file on each run to ensure a clean slate.
         """
-        db_path = "database.sqlite"
-        self.db = sqlite3.connect(db_path)
-        self.db.isolation_level = None
-        self.cursor = self.db.cursor()
+        
+        self.init_db()
 
         self.cursor.execute("""CREATE TABLE IF NOT EXISTS nodes (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -78,6 +90,8 @@ class Graph:
             last_fired VARCHAR(20),
             last_decayed VARCHAR(20)
         );""")
+        
+        self.close_db()
     
     def log(self, text: str) -> None:
         """Log an informational debug message."""
@@ -93,11 +107,17 @@ class Graph:
 
     def get_parent_node(self, node: Node) -> Node | None:
         """Walk direct is_a relations to find the parent (superclass) node."""
+        
+        self.init_db()
+
         name = node.get_name()
         results = self.cursor.execute(
             "SELECT subj, obj FROM relations WHERE name == 'is_a' AND (subj == ? OR obj == ?);",
             (name, name)
         ).fetchall()
+        
+        self.close_db()
+
         for row in results:
             subj = row[0]
             obj = row[1]
@@ -108,6 +128,7 @@ class Graph:
     def ensure_nodes(self) -> None:
         """Ensure all nodes referenced in relations exist in the nodes table."""
         # Fetch all unique subj and obj values from relations that don't exist in nodes
+        self.init_db()
         self.cursor.execute("""
             SELECT DISTINCT subj AS node_name FROM relations
             LEFT JOIN nodes ON relations.subj = nodes.name
@@ -116,6 +137,8 @@ class Graph:
             LEFT JOIN nodes ON relations.obj = nodes.name
         """)
         nodes = [row[0] for row in self.cursor.fetchall()]
+        
+        self.close_db()
 
         # Create missing nodes
         for node_name in nodes:
@@ -157,22 +180,31 @@ class Graph:
     def discover(self):
         """Scan the knowledge directory and load all markdown files as nodes."""
         self.nodes = {}
+        self.init_db()
 
         for row in self.cursor.execute("SELECT * FROM nodes;").fetchall():
             node = Node.fromJSON({"name": row[0], "known": row[1] == "True", "confidence": row[2], "activation": row[3], "relations": []})
             for rel in self.get_direct_relations(node):
                 node.add_relation(rel)
             self.nodes[node.get_name()] = node
+        
+        self.close_db()
             
     def get_node(self, name: str) -> Node:
         """Retrieve a node by name, creating it if it doesn't exist."""
+        
+        self.init_db()
         query_result = self.cursor.execute("SELECT name, known, confidence, activation FROM nodes WHERE name == ?;", (name,)).fetchone()
+        self.close_db()
+
         if name in self.nodes:
             return self.nodes[name]
+
         elif query_result != None:
             node = Node.fromJSON({"name": query_result[0], "known": query_result[1] == "True", "confidence": query_result[2], "activation": query_result[3], "relations": []})
             self.nodes[name] = node
             return node
+
         self.log(f"Node '{name}' not found, creating new node.")
         return self.add_node(name)
 
@@ -180,13 +212,22 @@ class Graph:
         """Create a new node with default properties and persist it."""
         node = Node(name)
         self.nodes[name] = node
+        
+        self.init_db()
         self.cursor.execute("INSERT INTO nodes (name, known, confidence, activation) VALUES (?, ?, ?, ?);", (name, False, 0.0, 0.0))
+        self.close_db()
+
         self.save_node(name)
         return node
 
     def decay_relations(self) -> None:
         """Apply exponential decay to all relation weights based on time since last decayed."""
-        for row in self.cursor.execute("SELECT name FROM nodes;"):
+        
+        self.init_db()
+        rows = self.cursor.execute("SELECT name FROM nodes;").fetchall()
+        self.close_db()
+
+        for row in rows:
             name = row[0]
             node = self.get_node(name)
             for rel in self.get_relations(node):
@@ -204,15 +245,21 @@ class Graph:
             #node.set_activation(node.get_activation() * 0.3)
             node.set_activation(0.0)
             self.save_node(node.get_name())"""
+            
+        self.init_db()
         self.cursor.execute("UPDATE nodes SET activation = activation * 0.2;")
+        self.close_db()
 
     def save_relation(self, rel: Relation) -> None:
         """Persist a relation's weight and last_fired to DB, sync to Node's in-memory list, then write markdown."""
         try:
+            self.init_db()
             self.cursor.execute(
                 "UPDATE relations SET weight = ?, last_fired = ?, last_decayed = ? WHERE subj == ? AND name == ? AND obj == ?;",
                 (rel.get_weight(), rel.get_last_fired(), rel.get_last_decayed(), rel.get_subj(), rel.get_name(), rel.get_obj())
             )
+            self.close_db()
+
             # Sync the relation back into the source Node's in-memory list
             for node_name in (rel.get_subj(), rel.get_obj()):
                     node = self.get_node(node_name)
@@ -233,6 +280,8 @@ class Graph:
         """Write a node's state to the database."""
         try:
             node = self.nodes[name]
+
+            self.init_db()
             self.cursor.execute(
                 "UPDATE nodes SET known = ?, confidence = ?, activation = ? WHERE name == ?;",
                 (node.get_known(), node.get_confidence(),
@@ -240,10 +289,15 @@ class Graph:
             )
         except Exception as e:
             self.err(f"Unexpected error while writing node '{name}': {e}")
+        finally:
+            self.close_db()
 
     def get_relation_by_id(self, relation_id: int) -> Relation:
         """Retrieve a relation by its database ID."""
+        self.init_db()
         raw = self.cursor.execute("SELECT * FROM relations WHERE id == ?;", (relation_id,)).fetchone()
+        self.close_db()
+
         if raw is None or raw == []:
             raise ValueError(f"Relation with id {relation_id} not found.")
         if len(raw) < 7:
@@ -258,12 +312,17 @@ class Graph:
     def get_direct_relations(self, node: Node) -> list[Relation]:
         """Return only direct (non-inherited) relations for a node from the database."""
         name = node.get_name()
+        
+        self.init_db()
         results = self.cursor.execute(
             "SELECT id FROM relations WHERE subj == ? OR obj == ? ORDER BY weight DESC;", (name, name)
         ).fetchall()
+        self.close_db()
+
         rels = []
         for row in results:
             rels.append(self.get_relation_by_id(row[0]))
+
         return rels
 
     def get_relations(self, node: Node) -> list[Relation]:
@@ -276,10 +335,14 @@ class Graph:
         """Create a new relation between two nodes and persist it."""
         now = datetime.now().isoformat()
         rel = Relation(subj, action, obj, 0.5, now, now)
+        
+        self.init_db()
         self.cursor.execute(
             "INSERT INTO relations (subj, name, obj, weight, last_fired, last_decayed) VALUES (?, ?, ?, ?, ?, ?);",
             (subj, action, obj, 0.5, now, now)
         )
+        self.close_db()
+
         self.get_node(subj).add_relation(rel)
         self.save_relation(rel)
         
@@ -382,9 +445,13 @@ class Graph:
 
     def get_output(self) -> list[Node]:
         """Return the top 25 most activated nodes (activation > 0.5), sorted descending."""
+        
+        self.init_db()
         rows = self.cursor.execute(
             "SELECT name FROM nodes WHERE activation >= 0.5 ORDER BY activation DESC LIMIT 10;"
         ).fetchall()
+        self.close_db()
+
         return [self.get_node(row[0]) for row in rows]
 
     def feed_input(self, subj: str, rel: str, obj: str, intent: str = "DEFAULT") -> None:
@@ -396,10 +463,12 @@ class Graph:
         self.stack.add((rel, 1.0, 0))
         self.add_activation(obj, 1.0, False, intent)
 
+        self.init_db()
         row = self.cursor.execute(
             "SELECT id FROM relations WHERE subj = ? AND name = ? AND obj = ?;",
             (subj, rel, obj)
         ).fetchone()
+        self.close_db()
 
         if row == None:
             self.add_relation(subj, rel, obj)
@@ -451,6 +520,7 @@ class Graph:
     def generate_graph_view(self):
         net = Network(height="900px", width="100%", directed=True,  bgcolor = "#222222", font_color = "white", select_menu=False, filter_menu=False)
         
+        self.init_db()
         nodes = self.cursor.execute(
             """SELECT DISTINCT subj AS node_name FROM relations
             LEFT JOIN nodes ON relations.subj = nodes.name
@@ -464,6 +534,7 @@ class Graph:
                WHERE e.subj IN (SELECT name FROM nodes ORDER BY activation DESC)
                AND e.obj IN (SELECT name FROM nodes ORDER BY activation DESC)""",
         ).fetchall()
+        self.close_db()
         
         for name in [row[0] for row in nodes]:
             net.add_node(name, label=name, title=name)
@@ -520,9 +591,13 @@ class Graph:
         for chunk in doc.noun_chunks:
             names.extend([token.text if token.ent_type_ or token.pos_ in ("PROPN", "NOUN") else token.lemma_  for token in doc])
         
+        self.init_db()
+
         for word in names:
             for node in self.cursor.execute("SELECT name FROM nodes WHERE name == ?;", (word,)).fetchall():
                 nodes.append(node[0]) 
+
+        self.close_db()
         
         return nodes
 

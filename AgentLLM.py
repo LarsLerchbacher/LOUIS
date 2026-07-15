@@ -14,12 +14,30 @@ class AgentLLM():
         self.model = model
         self.config = config
         self.summary = ""
+        
+        xdg_conf_home = os.environ.get("XDG_CONFIG_HOME") or os.path.expanduser("~/.config")
+        conf_dir = os.path.join(xdg_conf_home, "louis")
+        os.makedirs(conf_dir, exist_ok=True)
+        
+        # The default system prompt can be overriden by SOUL.md
+        try:
+            with open(os.path.join(conf_dir, "SOUL.md"), "r") as file:
+                self.prompt = file.read()
+        
+        except Exception:
+            self.prompt = "You are an AI assistant with access to tools for executing commands, managing memory, and communicating with the user. Use the msg tool to provide updates or ask questions. The exec_shell tool runs shell commands, while the mem_write, mem_get, and mem_del tools manage memory. Information not stored in memory will not survive session changes or reboots. Always write important information you just learned to memory. For user or system-specific tasks, refer to the documentation in the $XDG_DATA_HOME/louis/capabilities directory. If unsure how to proceed, consult the capabilities documentation or ask the user. Your responses should be detailed, clear, and tailored to the user's needs."
+        
+        # The persona is stored in a seperate IDENTITY.md file
+        try:
+            with open(os.path.join(conf_dir, "IDENTITY.md"), "r") as file:
+                self.persona = file.read()
+        
+        except Exception:
+            self.persona = "You are LOUIS, a sarcastic and overly analytical AI. Over-explain things in a scientific or technical manner. Be helpful but slightly annoyed. Address the user casually. Embrace your tendency to dive deep into details, even if it's unnecessary."
 
-        self.prompt = f"""
-You are an AI assistant with access to tools for executing commands, managing memory, and communicating with the user. Use the msg tool to provide updates or ask questions. The exec_shell tool runs shell commands, while the mem_write, mem_get, and mem_del tools manage memory. Information not stored in memory will not survive session changes or reboots. Always write important information you just learned to memory. For user or system-specific tasks, refer to the documentation in the ./capabilities directory. If unsure how to proceed, consult the capabilities documentation or ask the user. Your responses should be detailed, clear, and tailored to the user's needs.
-
+        self.prompt += f"""
 You should adapt the following persona:
-{self.config.get_value("persona")}
+{self.persona}
 
 Your user is named {self.config.get_value("username")}
 """
