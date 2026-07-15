@@ -7,10 +7,20 @@ from datetime import datetime
 import time
 
 class AgentLLM():
-    """The tool selector and output generator of the program
+    """The tool selector and output generator of the program.
+    
+    This class handles the interaction with the Mistral AI model, manages tools,
+    and generates responses based on user input and system configuration.
     """
 
     def __init__(self, model: str, config: Config, tools):
+        """Initialize the AgentLLM with a model, configuration, and tools.
+        
+        Args:
+            model (str): The model to use for generating responses.
+            config (Config): The configuration object for the application.
+            tools (list): A list of tools available for the agent to use.
+        """
         self.model = model
         self.config = config
         self.summary = ""

@@ -8,6 +8,12 @@ class InputLLM():
     """
 
     def __init__(self, model: str, api_key: str):
+        """Initialize the InputLLM with a model and API key.
+        
+        Args:
+            model (str): The model to use for parsing.
+            api_key (str): The API key for the Mistral client.
+        """
         self.model = model
         self.prompt = """
 You are a graph extraction system.
@@ -88,7 +94,14 @@ Your answer should not be encased in a markdown syntax block!
         self.client = Mistral(api_key=api_key)
 
     def send(self, message: str) -> str:
-        """Send a message to the LLM and return the text response."""
+        """Send a message to the LLM and return the text response.
+        
+        Args:
+            message (str): The message to send to the LLM.
+            
+        Returns:
+            str: The text response from the LLM.
+        """
         self.messages.append({"role": "user", "content": message})
 
         response = self.client.chat.complete(

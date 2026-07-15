@@ -42,6 +42,12 @@ fun_messages = [
 ]
 
 def cleanup_old_files(directory, extension='*'):
+    """Clean up old files in the specified directory, keeping only the 20 most recent files.
+    
+    Args:
+        directory (str): The directory to clean up.
+        extension (str): The file extension to filter by. Defaults to '*' (all files).
+    """
     global logger
     files = glob.glob(f'{directory}/{extension}')
     if len(files) <= 20:
@@ -56,6 +62,11 @@ def cleanup_old_files(directory, extension='*'):
         logger.info(f'Deleted old file: {file}')
 
 def write(fact: str) -> None:
+    """Write a fact to the graph.
+    
+    Args:
+        fact (str): The fact to write to the graph.
+    """
     global graph, input_llm, config
     
     try:
@@ -64,6 +75,11 @@ def write(fact: str) -> None:
         print("Ctrl + C detected. Stopping program")
 
 def query(question: str) -> None:
+    """Query the graph for information related to the question.
+    
+    Args:
+        question (str): The question to query the graph with.
+    """
     global graph, input_llm
     try:
         graph.query(question)
@@ -74,6 +90,14 @@ def query(question: str) -> None:
         print("Ctrl + C detected. Stopping program")
 
 def delete(mode: str, subj: str, relation: str = None, obj: str = None) -> None:
+    """Delete a node or relation from the graph.
+    
+    Args:
+        mode (str): The mode of deletion ('node' or 'relation').
+        subj (str): The subject node.
+        relation (str, optional): The relation to delete (required for 'relation' mode).
+        obj (str, optional): The object node (required for 'relation' mode).
+    """
     global graph
     try:
         if mode == "node":
@@ -113,19 +137,37 @@ def delete(mode: str, subj: str, relation: str = None, obj: str = None) -> None:
         logger.error(e)
 
 def user(self, message, *args, **kwargs):
+    """Log a user message.
+    
+    Args:
+        message (str): The message to log.
+    """
     self.log(26, "\r" + message, *args, **kwargs)
 
 def assistant(self, message, *args, **kwargs):
+    """Log an assistant message.
+    
+    Args:
+        message (str): The message to log.
+    """
     self.log(27, "\r" + message, *args, **kwargs)
 
 def tool(self, message, *args, **kwargs):
+    """Log a tool message.
+    
+    Args:
+        message (str): The message to log.
+    """
     self.log(25, "\r" + message, *args, **kwargs)
 
 
 def setup_logging(verbose: bool = False):
+    """Initialize logging to timestamped files under XDG_STATE_HOME/louis/logs/.
+    
+    Args:
+        verbose (bool): Whether to enable verbose logging.
+    """
     global logger, session_logger, config
-    """Initialize logging to timestamped files under XDG_STATE_HOME/louis/logs/."""
-
     xdg_state_home = os.environ.get("XDG_STATE_HOME") or os.path.expanduser("~/.local/state")
     log_dir = os.path.join(xdg_state_home, "louis", "logs")
     os.makedirs(log_dir, exist_ok=True)
@@ -153,6 +195,7 @@ def setup_logging(verbose: bool = False):
 
 
 def start_session_log():
+    """Start logging for the current session."""
     global logger, session_logger, config
     
     session_logger = logging.getLogger("session")
@@ -183,12 +226,14 @@ def start_session_log():
         session_logger.addHandler(handler)
 
 def run_api():
+    """Run the API server."""
     global config, logger, session_logger, api
     start_session_log()
     api = API(host="0.0.0.0", port=8000, config=config, logger=logger, session_logger=session_logger)
     api.run()
 
 def run_tui():
+    """Run the Text User Interface."""
     global config, logger, session_logger, tui
     start_session_log()
     tui = TUI(logger, session_logger, config)
@@ -266,7 +311,7 @@ if __name__ == "__main__":
 ██║        ██║   ██║   ██║   ██║   ██║   ╚════██║    
 ███████╗██╗╚██████╔╝██╗╚██████╔╝██╗██║██╗███████║██╗
 ╚══════╝╚═╝ ╚═════╝ ╚═╝ ╚═════╝ ╚═╝╚═╝╚═╝╚══════╝╚═╝
-      Lars Usefull Intelligent System
+    Lars Optimized Usefull Intelligent System
                                                 """)
     print(random.choice(fun_messages))
     print("-" * 80)
@@ -276,8 +321,12 @@ if __name__ == "__main__":
     if config.load() != 0:
         quit(1)
     
-    cleanup_old_files("logs")
-    cleanup_old_files("sessions")
+    xdg_state_home = os.environ.get("XDG_STATE_HOME") or os.path.expanduser("~/.local/state")
+    log_dir = os.path.join(xdg_state_home, "louis", "logs")
+    session_dir = os.path.join(xdg_state_home, "louis", "sessions")
+    
+    cleanup_old_files(log_dir)
+    cleanup_old_files(session_dir)
     
     graph = Graph(config.get_value("name"), logger, config)
     

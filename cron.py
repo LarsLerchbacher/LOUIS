@@ -4,13 +4,24 @@ import logging
 from Config import Config
 
 class CronManager:
+    """Manages automated prompts using OpenWebUI's automations API.
+    
+    This class handles the creation, updating, deletion, and execution of automated prompts.
+    """
     def __init__(self, logger: logging.Logger, config: Config):
+        """Initialize the CronManager with a logger and configuration.
+        
+        Args:
+            logger (logging.Logger): The logger for logging messages.
+            config (Config): The configuration object for the application.
+        """
         self.logger = logger
         self.config = config
         self.ca_cert = self.config.get_value("openwebui_ca_cert")
         self.initialize() 
     
     def initialize(self):
+        """Initialize the CronManager with the base URL and token."""
         self.logger.info("Initializing CronManager...")
         self.base_url = str(self.config.get_value("openwebui_url")) + "/api/v1/automations"
         self.token = self.config.get_value('openwebui_token')

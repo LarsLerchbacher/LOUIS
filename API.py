@@ -15,7 +15,21 @@ import requests
 from mistralai.client.models import AssistantMessage, ToolCall, FunctionCall
 
 class API:
+    """OpenAI-compatible API server for interacting with the AI.
+    
+    This class provides an API interface for the AI, allowing external applications
+    to interact with the AI model via HTTP requests.
+    """
     def __init__(self, host: str = "0.0.0.0", port: int = 8000, config = None, logger=None, session_logger=None):
+        """Initialize the API with a host, port, configuration, and loggers.
+        
+        Args:
+            host (str): The host address to bind the API server to.
+            port (int): The port to bind the API server to.
+            config (Config): The configuration object for the application.
+            logger (logging.Logger): The logger for logging messages.
+            session_logger (logging.Logger): The logger for session-specific logging.
+        """
         self.app = FastAPI()
         self.host = host
         self.config = config

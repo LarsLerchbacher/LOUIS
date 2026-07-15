@@ -8,7 +8,18 @@ import queue
 
 
 class TUI():
+    """Text User Interface for interacting with the AI.
+    
+    This class handles the TUI chat interface, including user input and displaying responses.
+    """
     def __init__(self, logger: logging.Logger, session_logger: logging.Logger, config: Config):
+        """Initialize the TUI with a logger, session logger, and configuration.
+        
+        Args:
+            logger (logging.Logger): The logger for logging messages.
+            session_logger (logging.Logger): The logger for session-specific logging.
+            config (Config): The configuration object for the application.
+        """
         self.logger = logger
         self.session_logger = session_logger
         self.config = config

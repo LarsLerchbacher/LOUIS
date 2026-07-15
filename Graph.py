@@ -21,29 +21,20 @@ class Graph:
     """
 
     def __init__(self, name: str, logger: logging.Logger, config: Config):
+        """Initialize the Graph with a name, logger, and configuration.
+        
+        Args:
+            name (str): The name of the graph.
+            logger (logging.Logger): The logger for logging messages.
+            config (Config): The configuration object for the application.
+        """
         self.name = name
-        self.config = config
-        self.logger = logger
         self.nodes = {}
         self.fired_nodes = []
         self.stack = set()
         self.threshold = 0.5
         self.hop_limit = 2
         self.nlp = spacy.load("en_core_web_sm")
-        self.allowed_relations = [
-            "is_a",
-            "instance_of",
-            "part_of",
-            "has_part",
-            "has_property"
-            "located_in",
-            "causes",
-            "depends_on",
-            "has",
-            "owned_by",
-            "interacts_with"
-
-        ]
 
         self.setup_db()
         self.ensure_nodes()
@@ -52,6 +43,7 @@ class Graph:
         self.reduce_activation()
     
     def init_db(self):
+        """Initialize the database connection and cursor."""
         xdg_data_home = os.environ.get("XDG_DATA_HOME") or os.path.expanduser("~/.local/share")
         data_dir = os.path.join(xdg_data_home, "louis")
         os.makedirs(data_dir, exist_ok=True)
@@ -61,6 +53,7 @@ class Graph:
         self.cursor = self.db.cursor()
         
     def close_db(self):
+        """Close the database connection and cursor."""
         self.db.commit()
         self.cursor.close()
         self.db.close()

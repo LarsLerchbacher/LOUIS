@@ -11,6 +11,15 @@ class Node:
     def __init__(self, name: str, known: bool = False,
                  confidence: float = 0.0, activation: float = 0.0,
                 relations: list = None):
+        """Initialize a Node with a name, known status, confidence, activation, and relations.
+        
+        Args:
+            name (str): The name of the node.
+            known (bool): Whether the node is known.
+            confidence (float): The confidence level of the node.
+            activation (float): The activation level of the node.
+            relations (list): A list of relations associated with the node.
+        """
         self.name = name
         self.known = known
         self.confidence = confidence
@@ -19,7 +28,14 @@ class Node:
 
     @staticmethod
     def fromJSON(json_dict: dict) -> 'Node':
-        """Create a Node from a parsed dictionary (e.g. from markdown parsing)."""
+        """Create a Node from a parsed dictionary (e.g. from markdown parsing).
+        
+        Args:
+            json_dict (dict): A dictionary containing the node data.
+            
+        Returns:
+            Node: A Node object created from the dictionary.
+        """
         return Node(
             json_dict["name"], json_dict["known"],
             json_dict["confidence"], json_dict["activation"],

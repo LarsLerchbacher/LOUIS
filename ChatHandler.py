@@ -9,6 +9,8 @@ import os
 class ChatHandler:
     """
     A class to handle chat sessions, abstracting the functionality for both TUI and API use.
+    
+    This class manages the chat session, including tools, functions, and the agent LLM.
     """
     
     def __init__(self, config, logger, session_logger):

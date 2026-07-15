@@ -8,7 +8,7 @@ L.O.U.I.S
 ██║        ██║   ██║   ██║   ██║   ██║   ╚════██║   
 ███████╗██╗╚██████╔╝██╗╚██████╔╝██╗██║██╗███████║██╗
 ╚══════╝╚═╝ ╚═════╝ ╚═╝ ╚═════╝ ╚═╝╚═╝╚═╝╚══════╝╚═╝
-          Lars Usefull Intelligent System
+    Lars Optimized Usefull Intelligent System
 ```
 
 ![A very annoyed owl in a labcoat, holding a cup of coffee](LOUIS.png)

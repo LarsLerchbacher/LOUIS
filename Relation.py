@@ -12,6 +12,16 @@ class Relation:
     def __init__(self, subj: str, name: str, obj: str, weight: float,
                  last_fired: datetime,
                  last_decayed: datetime = None):
+        """Initialize a Relation with a subject, name, object, weight, and timestamps.
+        
+        Args:
+            subj (str): The subject of the relation.
+            name (str): The name of the relation.
+            obj (str): The object of the relation.
+            weight (float): The weight of the relation.
+            last_fired (datetime): The last time the relation was fired.
+            last_decayed (datetime, optional): The last time the relation was decayed.
+        """
         self.subj = subj
         self.name = name
         self.obj = obj
@@ -21,7 +31,14 @@ class Relation:
 
     @staticmethod
     def fromJSON(json_dict: dict) -> 'Relation':
-        """Create a Relation from a parsed dictionary."""
+        """Create a Relation from a parsed dictionary.
+        
+        Args:
+            json_dict (dict): A dictionary containing the relation data.
+            
+        Returns:
+            Relation: A Relation object created from the dictionary.
+        """
         return Relation(
             json_dict["subj"], json_dict["name"], json_dict["obj"],
             json_dict["weight"],
