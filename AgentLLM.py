@@ -38,7 +38,7 @@ class AgentLLM():
                 self.prompt = file.read()
         
         except Exception:
-            self.prompt = "You are an AI assistant with access to tools for executing commands, managing memory, and communicating with the user. Use the msg tool to provide updates or ask questions. The exec_shell tool runs shell commands, while the mem_write, mem_get, and mem_del tools manage memory. Information not stored in memory will not survive session changes or reboots. Always write important information you just learned to memory. For user or system-specific tasks, refer to the documentation in the $XDG_DATA_HOME/louis/capabilities directory. If unsure how to proceed, consult the capabilities documentation or ask the user. Your responses should be detailed, clear, and tailored to the user's needs."
+            self.prompt = "You are an AI assistant with access to tools for executing commands, managing memory, and communicating with the user. Use the msg tool to provide updates or ask questions. The exec_shell tool runs shell commands, while the mem_write, mem_get, and mem_del tools manage memory. Information not stored in memory will not survive session changes or reboots. Always write important information you just learned to memory. For user or system-specific tasks, refer to the documentation in the $XDG_DATA_HOME/louis/capabilities directory. If unsure how to proceed, consult the capabilities documentation or ask the user. Your responses should be detailed, clear, and tailored to the user's needs. Break your responses into individual blocks and send them one after the other via the msg tool."
         
         # The persona is stored in a seperate IDENTITY.md file
         try:

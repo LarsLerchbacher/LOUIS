@@ -99,7 +99,7 @@ class ChatHandler:
                 "parameters": {
                     "type": "object",
                     "properties": {
-                        "mode": {"type": "string"},
+                        "mode": {"type": "string", "description": "Either NODE or RELATION"},
                         "subj": {"type": "string"},
                         "rel": {"type": "string"},
                         "obj": {"type": "string"}
@@ -199,9 +199,8 @@ class ChatHandler:
 
     def memory_delete(self, mode: str = "node", subj: str = "", rel: str = None, obj: str = None):
         if mode == "NODE":
-            self.graph.cursor.execute("DELETE FROM nodes WHERE name == ?;", (subj,))
-            self.graph.db.commit()
-            
+            self.graph.delete_node(sub)            
+
             # update stats
             old_mem_del_calls = self.state.get_value("memory_delete-calls")
             self.state.set_value("memory_delete-calls", old_mem_del_calls + 1)
@@ -212,8 +211,7 @@ class ChatHandler:
             if not subj or not rel or not obj:
                 return "ERROR: One of the required parameters for relation deletion (subj, rel, obj) was not provided! Please try again with all correct parameters."
             
-            self.graph.cursor.execute("DELETE FROM relations WHERE subj == ? AND name == ? AND obj == ?;", (subj, rel, obj))
-            self.graph.db.commit()
+            self.graph.delete_rel(subj, name, obj)
             
             # update stats
             old_mem_del_calls = self.config.get_value("memory_delete-calls")
