@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Capabilities - LOUIS</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <header>
+        <h1>L.O.U.I.S</h1>
+        <p>Lars Optimized Useful Intelligent System</p>
+    </header>
+    <nav>
+        <ul>
+            <li><a href="index.html">Home</a></li>
+            <li><a href="setup.html">Setup</a></li>
+            <li><a href="usage.html">Usage</a></li>
+            <li><a href="capabilities.html">Capabilities</a></li>
+            <li><a href="history.html">History</a></li>
+        </ul>
+    </nav>
+    <main>
+        <section>
+            <h2>Capabilities</h2>
+            <p>LOUIS uses a modular approach with "capabilities," which are markdown files containing usage information about different tools and workflows. These capabilities are only injected into context when the user's message contains their name, reducing token usage significantly.</p>
+            <h3>How Capabilities Work</h3>
+            <p>Capabilities are stored as markdown files in the <code>capabilities</code> directory. They are dynamically loaded and only included in the context when relevant to the task, ensuring efficient token usage. Every capability is available as soon as its corresponding file is placed in the directory.</p>
+        </section>
+    </main>
+    <footer>
+        <p>© 2026 Lars Lerchbacher. Code licensed under AGPL-3.0-or-later — <a href="https://github.com/LarsLerchbacher/LOUIS">source</a> · <a href="https://www.gnu.org/licenses/agpl-3.0.html">full license text</a></p>
+    </footer>
+</body>
+</html>

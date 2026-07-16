@@ -14,6 +14,11 @@ L.O.U.I.S
 ![A very annoyed owl in a labcoat, holding a cup of coffee](LOUIS.png)
 
 
+
+> [!WARNING]  
+> This project is experimental and unstable. Crashes may and will occur.
+
+
 ## What is LOUIS
 LOUIS is an experiment to create a custom, token efficient agent, building upon the current generation of **LLMs** combined with the power of **semantic networks** with **spread activation** as well as the very helpful [Open WebUI](https://docs.openwebui.com/).
 
@@ -35,8 +40,8 @@ For this to work, you need to run an Open WebUI server and add an OpenAI endpoin
 The LOUIS CLI also has support for manual memory interactions, to view or edit the agents memory. This is available with the graph command and the following subcommands:
 
 `python main.py graph show` opens the graph view in the browser (is updated every write, just reload the page)<br>
-`python main.py graph query` launches an interactive graph query. Just type a concept, name or question and press enter. You will get exactly what LOUIS sees too.<br>
-`python main.py graph write` launches and interactive write mode. Type a fact in VERY simple language to write to the graph. The extractor LLM easily misinterprets stuff, so try to stick to one fact per sentence. Facts should be rephrasable to the form: `subj --- relation --> object`. This is what the graph stores internally.
+`python main.py graph query` Querries the memory for a term. You will get exactly what LOUIS sees too, when querrying his memory.<br>
+`python main.py graph write` Writes a fact to memory. State the fact in VERY simple language. The extractor LLM easily misinterprets stuff, so try to stick to one fact per sentence. Facts should be rephrasable to the form: `subj --- relation --> object`. This is what the graph stores internally.
 
 
 ## What makes LOUIS special
@@ -71,7 +76,6 @@ Capabilities are **markdown files on disk** and **are only injected into context
 the correct tool.
 
 This is the major difference to OpenClaw, which exposes all available skills and tools every turn, regardless of the task. Our approach reduces token cost **immensly**.
-On a day of heavy testing, LOUIS used about 1M tokens, while OpenClaw used between 5 and 20 Million tokens.
 
 
 ## History
@@ -96,8 +100,3 @@ OpenClaw is a **great** tool, and I think those people that can use it properly,
 ### LOUIS is back!
 The missing Linux support for voice interactions (yes, I can use dictation mode, which somehow works even worse than sending voice messages over matrix to the same stt provider, but it doesn't even speak the responses out loud) and the token problem led to me wanting to create my own agent system. Something simpler, using less tokens, less built-in tools, more externalized "skill"-like reference files and a custom 
 interaction loop. That is why I started to convert LOUIS back into a full-flegged AI assistant. This time, with Mistral API integration, using the graph as a memory backend.
-
-
-## AI work on this project
-
-I used my OpenClaw agent "JARVIS" (yes, very generic, I know) to create two and a half pull requests for this project. The last one, a refactor task, failed during the work on it. I then had to manually clean it up (ok, I also used an AI chat in my IDE to do it, but a lot of work was manual too).  The other changes made by JARVIS (now the account belongs to LOUIS) were in reality made by me, while using the computer JARVIS/LOUIS are running on.

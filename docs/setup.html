@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Setup Guide - LOUIS</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <header>
+        <h1>L.O.U.I.S</h1>
+        <p>Lars Optimized Useful Intelligent System</p>
+    </header>
+    <nav>
+        <ul>
+            <li><a href="index.html">Home</a></li>
+            <li><a href="setup.html">Setup</a></li>
+            <li><a href="usage.html">Usage</a></li>
+            <li><a href="capabilities.html">Capabilities</a></li>
+            <li><a href="history.html">History</a></li>
+        </ul>
+    </nav>
+    <main>
+        <section>
+            <h2>Setup Guide</h2>
+            <h3>Prerequisites</h3>
+            <ul>
+                <li>Python 3.8 or higher</li>
+                <li>Virtual environment (recommended)</li>
+                <li>API key for Mistral AI</li>
+            </ul>
+            <h3>Installation</h3>
+            <ol>
+                <li>Clone the repository:
+                    <pre>git clone https://github.com/LarsLerchbacher/LOUIS.git</pre>
+                </li>
+                <li>Navigate to the project directory:
+                    <pre>cd LOUIS</pre>
+                </li>
+                <li>Create a virtual environment:
+                    <pre>python -m venv venv</pre>
+                </li>
+                <li>Activate the virtual environment:
+                    <pre>source venv/bin/activate</pre>
+                </li>
+                <li>Install the required dependencies:
+                    <pre>pip install -r requirements.txt</pre>
+                </li>
+            </ol>
+            <h3>OpenWebUI</h3>
+            <p>If you want to use OpenWebUI to interact with LOUIS (recommend) you have to do the following:</p>
+            <ol>
+                <li>Run an Open WebUI server.</li>
+                <li>Add an OpenAI provider connection pointing to the LOUIS server at port 8000.</li>
+                <li>Disable all OpenWebUI features like Tools, WebSearch, Memory and notes for the LOUIS model, as it can't use them.</li>
+                <li>Optionally, upload the LOUIS.png picture from this repo as the models Profile picture</li>
+            </ol>
+            <h3>Configuration</h3>
+            <p>LOUIS uses the following directory structure for configuration and data:</p>
+            <ul>
+                <li><strong>Configuration Directory</strong>: <code>~/.config/louis/</code>
+                    <ul>
+                        <li><code>config.json</code>: Contains API keys and general settings.</li>
+                        <li><code>IDENTITY.md</code>: Defines the personality of LOUIS. If not found, a default personality is used.</li>
+                        <li><code>SOUL.md</code>: Overrides the general behavioral instructions (system prompt).</li>
+                    </ul>
+                </li>
+                <li><strong>Data Directory</strong>: <code>~/.local/share/louis/</code>
+                    <ul>
+                        <li><code>capabilities/</code>: Contains markdown files for capabilities.</li>
+                        <li><code>database.sqlite</code>: The semantic network database.</li>
+                        <li><code>graph.html</code>: Visual representation of the semantic network.</li>
+                    </ul>
+                </li>
+                <li><strong>State Directory</strong>: <code>~/.local/state/louis/</code>
+                    <ul>
+                        <li><code>logs/</code>: Log files.</li>
+                        <li><code>sessions/</code>: Transcripts of the last 20 sessions.</li>
+                    </ul>
+                </li>
+            </ul>
+            <h4>Example <code>config.json</code></h4>
+            <pre>{
+    "name": "LOUIS",
+    "username": "Lars",
+    "graph-model": "mistral-medium-2508",
+    "chat-model": "devstral-2512",
+    "mistral_api_key": "your_mistral_api_key_here",
+    "temperature": 1.0,
+    "request_delay_ms": 1250,
+    "context_window": 131072,
+    "context_warn_percentage": 90,
+    "openwebui_url": "https://10.0.0.30",
+    "openwebui_ca_cert": "/usr/local/share/ca-certificates/lerchbacher-software.crt",
+    "openwebui_token": "your_openwebui_token_here"
+}</pre>
+            <h4>Notes</h4>
+            <ul>
+                <li>The <code>input-tokens</code>, <code>completion-tokens</code>, and other counter fields are automatically managed by LOUIS.</li>
+                <li>The <code>last_summary</code> field is used for session summaries.</li>
+                <li>The <code>context_window</code> field defines the maximum context window size (default: 131072).</li>
+                <li>The <code>context_warn_percentage</code> field sets the percentage of the context window at which a warning is issued (default: 90).</li>
+            </ul>
+        </section>
+    </main>
+    <footer>
+        <p>© 2026 Lars Lerchbacher. Code licensed under AGPL-3.0-or-later — <a href="https://github.com/LarsLerchbacher/LOUIS">source</a> · <a href="https://www.gnu.org/licenses/agpl-3.0.html">full license text</a></p>
+    </footer>
+</body>
+</html>

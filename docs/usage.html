@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Usage Guide - LOUIS</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <header>
+        <h1>L.O.U.I.S</h1>
+        <p>Lars Optimized Useful Intelligent System</p>
+    </header>
+    <nav>
+        <ul>
+            <li><a href="index.html">Home</a></li>
+            <li><a href="setup.html">Setup</a></li>
+            <li><a href="usage.html">Usage</a></li>
+            <li><a href="capabilities.html">Capabilities</a></li>
+            <li><a href="history.html">History</a></li>
+        </ul>
+    </nav>
+    <main>
+        <section>
+            <h2>Usage Guide</h2>
+            <h3>A general warning first: LOUIS is experimental and may not work as expected. Please report any problems via <a href="https://github.com/LarsLerchbacher/LOUIS/issues">GitHub Issues</a></h3>
+            <p>
+                LOUIS can be used via two main ways: as an AI model on OpenWebUI or via its terminal chat.
+                We recommend you use the first option, as it provides the most features and lets you re-read old chats.
+            </p>
+
+            <h3>Terminal Chat</h3>
+            <p>Start a chat session with LOUIS using the terminal</p>
+            <pre>python main.py chat</pre>
+            <p>Commands:</p>
+            <ul>
+                <li><code>/reset</code>: Summarizes the current session and starts a new one with the summary added to its system prompt.</li>
+                <li><code>/new</code>: Starts a clean new session.</li>
+                <li><code>/exit</code>: Exits the chat.</li>
+            </ul>
+            <p>Terminal chat sessions are only stored in the session files in $XDG_STATE_HOME/louis/sessions and will be removed, if you start more than 20 sessions afterwards (the last 20 are kept).<br>
+            You cannot continue a finished / canceled terminal chat.</p>
+            <h3>Context Window Warning</h3>
+            <p>LOUIS warns you when the chat reaches a configurable percentage of the context window (recommended: 85-90%). This feature works in both terminal chat and Open WebUI.</p>
+            <h3>Graph Commands</h3>
+            <p>Interact with the memory graph:</p>
+            <ul>
+                <li><code>python main.py graph show</code>: Opens the graph view in the browser.</li>
+                <li><code>python main.py graph query</code>: Launches an interactive graph query.</li>
+                <li><code>python main.py graph write</code>: Launches an interactive write mode.</li>
+            </ul>
+            <h3>Cron Subcommand</h3>
+            <p>Interact with Open WebUI's prompt scheduling system:</p>
+            <pre>python main.py cron</pre>
+            <p>This allows you to schedule prompts and manage scheduled tasks directly from LOUIS.</p>
+            <h3>Open WebUI Integration</h3>
+            <p>The intended way of interacting with LOUIS. You can create and delete chats as normal. Editing messages <b>may not work as expected or lead to crashes</b>. 
+                LOUIS is unfortunately unable to generate suggestions for either the chat title or follow ups. 
+                If you want those, you have to configure OpenWebUI to use a MistralAI model directly.
+                You can use the full potential of scheduled prompts and the voice interactions with LOUIS. 
+                <br><br> 
+                Please note, that LOUIS' responses are not the fastest, as they are relayed to MistralAI and processed internally. Short conversational reponses should be fine, longers should be split into parts by the model (if it complies with the prompt) but tool calls or memory access take longer.
+                LOUIS unfortunately does not support streaming responses character by character, but rather block by block. This is due to his internal workings and cannot easily be changed.
+                Please don't ask me to do that. I won't.
+            </p>
+            <h4>Commands</h4>
+            <p>OpenWebUI only supports one command: <pre>/reset</pre>. This summarizes the current session to reduce the context size. 
+                You will still be able to see all prior messages, the model won't. 
+                It can only work with the summary. Editing messages before the summary MAY HAVE UNFORSEEN CONSEQUENCES LIKE CRASHES! (to be honest, I never event tested that)
+            
+            <h3>Notes</h3>
+            <ul>
+                <li>The server can only handle one request at a time.</li>                    
+                <li>Stopping its turn before it produced a response can cause the LOUIS server to crash.</li>
+                <li>You can summarize your current session using /reset via OpenWebUI too, to reduce the context size of the current chat.</li>
+            </ul> 
+        </section>
+    </main>
+    <footer>
+        <p>© 2026 Lars Lerchbacher. Code licensed under AGPL-3.0-or-later — <a href="https://github.com/LarsLerchbacher/LOUIS">source</a> · <a href="https://www.gnu.org/licenses/agpl-3.0.html">full license text</a></p>
+    </footer>
+</body>
+</html>
