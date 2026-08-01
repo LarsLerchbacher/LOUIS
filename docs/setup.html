@@ -53,6 +53,8 @@
                 <li>Run an Open WebUI server.</li>
                 <li>Add an OpenAI provider connection pointing to the LOUIS server at port 8000.</li>
                 <li>Disable all OpenWebUI features like Tools, WebSearch, Memory and notes for the LOUIS model, as it can't use them.</li>
+		<li>If you want to use the voice features of OpenWebUI, you need to set up a reverse proxy on the OpenWebUI host. See the <a href="https://docs.openwebui.com/">OpenWebUI docs</a> for details</li>
+		<li>Log into OpenWebUI in your browser and find the token cookie. This is belongs in the openwebui_token field in your config</li>
                 <li>Optionally, upload the LOUIS.png picture from this repo as the models Profile picture</li>
             </ol>
             <h3>Configuration</h3>
@@ -91,13 +93,11 @@
     "context_window": 131072,
     "context_warn_percentage": 90,
     "openwebui_url": "https://10.0.0.30",
-    "openwebui_ca_cert": "/usr/local/share/ca-certificates/lerchbacher-software.crt",
+    "openwebui_ca_cert": "/usr/local/share/ca-certificates/your-openwebui-rev-proxy-ca.crt",
     "openwebui_token": "your_openwebui_token_here"
 }</pre>
             <h4>Notes</h4>
             <ul>
-                <li>The <code>input-tokens</code>, <code>completion-tokens</code>, and other counter fields are automatically managed by LOUIS.</li>
-                <li>The <code>last_summary</code> field is used for session summaries.</li>
                 <li>The <code>context_window</code> field defines the maximum context window size (default: 131072).</li>
                 <li>The <code>context_warn_percentage</code> field sets the percentage of the context window at which a warning is issued (default: 90).</li>
             </ul>
