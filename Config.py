@@ -41,7 +41,7 @@ class Config():
                         self.data = json.loads(data)
                         return 0
                 except FileNotFoundError:
-                        self.logger.error(f"Configuration file not found at {os.path.join(os.curdir, 'config.json')}")
+                        self.logger.error(f"Configuration file not found at {os.path.join(xdg_conf_home, 'config.json')}")
                         return -1
                 except Exception as e:
                         self.logger.error(f"Error parsing configuration: {e}")
