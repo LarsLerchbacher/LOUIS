@@ -8,19 +8,22 @@ L.O.U.I.S
 ██║        ██║   ██║   ██║   ██║   ██║   ╚════██║   
 ███████╗██╗╚██████╔╝██╗╚██████╔╝██╗██║██╗███████║██╗
 ╚══════╝╚═╝ ╚═════╝ ╚═╝ ╚═════╝ ╚═╝╚═╝╚═╝╚══════╝╚═╝
-    Lars Optimized Usefull Intelligent System
+    Lars Optimized Useful Intelligent System
 ```
 
-![A very annoyed owl in a labcoat, holding a cup of coffee](LOUIS.png)
+![A very annoyed owl in a labcoat, holding a cup of coffee (the personality of LOUIS)](LOUIS.png)
 
 
 
 > [!WARNING]  
-> This project is experimental and unstable. Crashes may and will occur.
-
+> LOUIS is an experimental personal project and is currently under active development. Some features may be unstable.
 
 ## What is LOUIS
-LOUIS is an experiment to create a custom, token efficient agent, building upon the current generation of **LLMs** combined with the power of **semantic networks** with **spread activation** as well as the very helpful [Open WebUI](https://docs.openwebui.com/).
+LOUIS is an experimental AI agent and API built around a custom long-term memory system based on a semantic network and spreading activation. It is primarily designed to be used as a backend for [Open WebUI](https://docs.openwebui.com/), with an additional CLI for direct interaction.
+
+## Memory
+
+Instead of representing long-term memory as a collection of text snippets, LOUIS stores information as a semantic network consisting of concepts and weighted relations. Queries activate relevant nodes, and activation propagates through the network to retrieve related information. This also allows it to do some basic reasoning at memory level (e.g. `Socrates is_a human`, `human has_property mortal` can lead to `Socrates has_property mortal`).
 
 ## How can I use LOUIS?
 
@@ -28,10 +31,13 @@ You can download it, create a python virtual environment and install the require
 Edit the default config.json file, add your own API key (the included one is invalid, if you're wondering, uploaded it by mistake), set your name, the name of the AI and adjust its personality prompt.
 
 ### Quick start with terminal chat
-Then just run `python main.py chat` to start chatting with your own agent from your terminal. The terminal chat has a /reset command, which summarizes the current session and starts a new one with the summary added to its system prompt and /new which starts a clean new session. To exit it, enter /exit<br>
+Then just run `python main.py chat` to start chatting with your own agent from your terminal. The terminal chat has a /reset command, which summarizes the current session and starts a new one.
+The summary is added to its system prompt, so it knows what happened in the last session.
+There is also /new, which starts a clean new session. 
+To exit it, enter /exit<br>
 
 
-### Inteded use
+### Intended use
 The intended use of LOUIS is combined with Open WebUI. This adds a lot of additional features, like chats, voice conversations and scheduled prompts.
 For this to work, you need to run an Open WebUI server and add an OpenAI endpoint, pointing to the IP address of the LOUIS server at port 8000.
 
@@ -40,7 +46,7 @@ For this to work, you need to run an Open WebUI server and add an OpenAI endpoin
 The LOUIS CLI also has support for manual memory interactions, to view or edit the agents memory. This is available with the graph command and the following subcommands:
 
 `python main.py graph show` opens the graph view in the browser (is updated every write, just reload the page)<br>
-`python main.py graph query` Querries the memory for a term. You will get exactly what LOUIS sees too, when querrying his memory.<br>
+`python main.py graph query` Queries the memory for a term. You will get exactly what LOUIS sees too, when querying his memory.<br>
 `python main.py graph write` Writes a fact to memory. State the fact in VERY simple language. The extractor LLM easily misinterprets stuff, so try to stick to one fact per sentence. Facts should be rephrasable to the form: `subj --- relation --> object`. This is what the graph stores internally.
 
 
@@ -55,48 +61,30 @@ Aside from the fact, that it uses a semantic network as its main memory system, 
 5. Go to step 2
 6. The user is prompted for their next message
 
-This alone may not be the most uncommon loop. What is uncommon, however are the available tools:
+The interaction loop itself is relatively straightforward. What is more unusual is the set of tools available to the agent:
 
 - msg: The message tool allows the agent to communicate with the user. As it is a tool itself, it can be used between other tool calls, enabling the agent to give regular status updates. It can also be used to ask the user a question and pause the execution until an answer is received. This allows it to ask for clarification instead of guessing.
-- mem_get: Querries the memory graph
+- mem_get: Queries the memory graph
 - mem_write: Writes facts to the memory
 - mem_delete: Delete wrong/old nodes and relations for memory
-- exec: Execute a shell command. Commands that take longer than 30 seconds are executed in the background. Only one command can be run at a time, but the agent can choose to overwrite the curent task with a new one, in case it runs a non-terminating command.
+- exec: Execute a shell command. Commands that take longer than 30 seconds are executed in the background. Only one command can be run at a time, but the agent can choose to overwrite the current task with a new one, in case it runs a non-terminating command.
 - checkProc: Get the output of the last exec command
 
 
 ## Capabilities
 
-LOUIS uses a differrent approach than OpenClaw, when it comes to adding features.
+LOUIS uses a different approach than OpenClaw, when it comes to adding features.
 
 We have 'capabilities', which are markdown files, just like Skills in OpenClaw, containing usage information about different user- or system specific tools and workflows.
-The agent is instructed to look throught the available capabilities before guessing how to execute an action.
+The agent is instructed to look through the available capabilities before guessing how to execute an action.
 
-Capabilities are **markdown files on disk** and **are only injected into context**, when the users message contains their name. The agent can also read them freely to find
-the correct tool.
+Capabilities are **markdown files on disk** and **are only injected into context**, when the user's message contains their name. The agent can also read them freely to find
+the correct tool. e.g. `spotify.md` gets injected when the prompt contains `spotify`.
 
-This is the major difference to OpenClaw, which exposes all available skills and tools every turn, regardless of the task. Our approach reduces token cost **immensly**.
+This is the major difference to OpenClaw, which exposes all available skills and tools every turn, regardless of the task. Our approach reduces token cost **immensely**.
 
 
 ## History
 
-### Beginnings
-LOUIS originally started out as an attempt to create an aritifical intelligence by "modelling the human brain into a database". This was a stupid attempt of me, thinking I came up with something new.
-Turns out, there is already something like this: semantic networks with spread activation. 
+If you're interested, check HISTORY.md
 
-### How the memory works
-You take a database (in this case SQLite but mostly Graph based), add nodes as neurons or concepts and edges between the nodes (relations, synapses, however you want to call them). Now for retrieving, you activate some nodes, if their activation crosses the threshold, they propagate some of their activation to connected nodes, based on the relation strength. Afterwards, you take the most activated nodes and the strongest relations, and there you go: the graph just retrieved information similar to how the brain would. Writing works similar, but if a relation successfully activates the target node, it gets stronger, otherwise weaker. Also, relations decay over time, that means if they are not activated often enough, they will get very weak after some time (we're talking years here). In the inital prototypese, I hooked up some LLMs for converting natural language to usable input and output back into language. This of course produced weird and unstable results.
-
-### Memory!
-When I realized, that this alone wasn't going to produce any form of 'intelligent' output, I decided to convert it to a memory backend for AIs.
-In this stage I added the inital chat interface, the CLI commands and the graph view.
-
-### OpenClaw
-At that time, I was testing OpenClaw, I had already experimented with it for weeks, even bought 5$ worth of API credits on an inference provider platform, and was hitting the main problem of OpenClaw:
-> Its token inefficiency
-
-OpenClaw is a **great** tool, and I think those people that can use it properly, have a great agent at their side, but for me, it was not worth the effort. It has some problems, like being designed for MacOS, which means half the plugins (especially voice interaction) are made for Mac only, the regular updates tend to break stuff, the documentation that includes unsuported keys or does NOT include needed ones and especially the huge amount of tokens it uses. Running it on free models is almost impossible. And for paid ones, it can get too expensive for students like me to keep up. The system prompt alone is **16k** of tokens with more or less default setup. I could crunch it down to 9k, but it was still too expensive and burning lots of tokens every turn.
-
-### LOUIS is back!
-The missing Linux support for voice interactions (yes, I can use dictation mode, which somehow works even worse than sending voice messages over matrix to the same stt provider, but it doesn't even speak the responses out loud) and the token problem led to me wanting to create my own agent system. Something simpler, using less tokens, less built-in tools, more externalized "skill"-like reference files and a custom 
-interaction loop. That is why I started to convert LOUIS back into a full-flegged AI assistant. This time, with Mistral API integration, using the graph as a memory backend.

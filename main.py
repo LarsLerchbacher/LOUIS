@@ -320,7 +320,7 @@ if __name__ == "__main__":
 ██║        ██║   ██║   ██║   ██║   ██║   ╚════██║    
 ███████╗██╗╚██████╔╝██╗╚██████╔╝██╗██║██╗███████║██╗
 ╚══════╝╚═╝ ╚═════╝ ╚═╝ ╚═════╝ ╚═╝╚═╝╚═╝╚══════╝╚═╝
-     Lars Optimized Usefull Intelligent System
+     Lars Optimized Useful Intelligent System
                                                 """)
     print(random.choice(fun_messages))
     print("-" * 80)
