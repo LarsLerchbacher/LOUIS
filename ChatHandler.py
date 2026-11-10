@@ -291,7 +291,7 @@ Do not acknowledge this command or respond conversationally, just summarize.
 
 **Summary:**"""
             })
-            response = self.agentLLM.client.chat.complete(
+            response = self.agentLLM.client.chat.completions.create(
                 model=self.agentLLM.model,
                 messages=self.agentLLM.messages,
                 temperature=0.0,

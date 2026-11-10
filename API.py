@@ -20,7 +20,8 @@ import threading
 import queue
 import sqlite3
 import requests
-from mistralai.client.models import AssistantMessage, ToolCall, FunctionCall
+from openai.types.chat import ChatCompletionMessage
+#from mistralai.client.models import AssistantMessage, ToolCall, FunctionCall
 
 class API:
     """OpenAI-compatible API server for interacting with the AI.
@@ -164,14 +165,14 @@ Do not acknowledge this command or respond conversationally, just summarize.
 
 **Summary:**"""})
         
-        response = self.chat.agentLLM.client.chat.complete(
+        response = self.chat.agentLLM.client.chat.completions.create(
             model=self.chat.agentLLM.model,
             messages=self.chat.agentLLM.messages,
             temperature=0.0,
         )
         
         old_summary = cursor.execute("SELECT summary FROM chats WHERE identifier == ?;", (chat_id,)).fetchone()[0] or ""
-        new_summary = response.choices[0].message.content if response.choices[0].message.content else "No significant updates since last summary"
+        new_summary = response["choices"][0]["text"] if response["choices"][0]["text"] else "No significant updates since last summary"
         summary = old_summary + new_summary
         cursor.execute("UPDATE chats SET summary = ? WHERE identifier == ?;", (summary, chat_id))
             
@@ -295,7 +296,7 @@ Do not acknowledge this command or respond conversationally, just summarize.
             async def generate():
                 while True:
                     chunk = await response_queue.get()
-                    if isinstance(chunk, AssistantMessage):
+                    if isinstance(chunk, ChatCompletionMessage):
                         chunk = chunk.content
                     if chunk is DONE_SENTINEL:
                         yield "data: [DONE]\n\n"

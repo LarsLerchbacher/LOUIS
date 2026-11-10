@@ -6,7 +6,7 @@
 	You should have received a copy of the GNU Affero General Public License along with LOUIS. If not, see <https://www.gnu.org/licenses/>.
 """
  
-from mistralai.client import Mistral
+from openai import OpenAI
 
 class InputLLM():
     """Parses natural language input into structured JSON relations for the model.
@@ -15,7 +15,7 @@ class InputLLM():
     lemmatize verbs, and output JSON suitable for Model.parseJSON().
     """
 
-    def __init__(self, model: str, api_key: str):
+    def __init__(self, model: str, api_key: str, base_url: str):
         """Initialize the InputLLM with a model and API key.
         
         Args:
@@ -99,7 +99,7 @@ Your answer should not be encased in a markdown syntax block!
 
 """ 
         self.messages = [{"role": "system", "content": self.prompt}]
-        self.client = Mistral(api_key=api_key)
+        self.client = OpenAI(api_key=api_key, base_url=base_url)
 
     def send(self, message: str) -> str:
         """Send a message to the LLM and return the text response.
@@ -112,14 +112,14 @@ Your answer should not be encased in a markdown syntax block!
         """
         self.messages.append({"role": "user", "content": message})
 
-        response = self.client.chat.complete(
+        response = self.client.chat.completions.create(
             model=self.model,
             messages=self.messages,
             temperature=0.0,
         )
 
         # Extract the assistant's message
-        assistant_message = response.choices[0].message
+        assistant_message = response["choices"][0]["text"]
         
         # Append the assistant's message to the messages list
         self.messages.append({

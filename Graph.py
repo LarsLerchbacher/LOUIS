@@ -631,7 +631,7 @@ class Graph(metaclass=Singleton):
                 else:
                     nodes.append(token.lemma_ if token.pos_ not in ("PROPN", "NOUN") else token.text)
             
-            json_data = InputLLM(self.config.get_value("graph-model"), self.config.get_value("mistral_api_key")).send(f"Source Text: {sentence}\nLemmatized words: {nodes}")
+            json_data = InputLLM(self.config.get_value("graph-model"), self.config.get_value("api_key"), self.config.get_value("base_url")).send(f"Source Text: {sentence}\nLemmatized words: {nodes}")
             self.log(f"Extracted relations: {json_data}")
             self.parse_json(json_data)
         

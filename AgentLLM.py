@@ -7,8 +7,7 @@
 """
  
 from Config import Config
-from mistralai.client import Mistral
-from mistralai.client.errors.sdkerror import SDKError
+from openai import OpenAI, OpenAIError
 import json
 import os
 from datetime import datetime
@@ -64,7 +63,8 @@ Your user is named {self.config.get_value("username")}
 """
         self.messages = [{"role": "system", "content": self.prompt}]
         self.tools = tools
-        self.client = Mistral(api_key=self.config.get_value("mistral_api_key"))
+        base_url = self.config.get_value("base_url")
+        self.client = OpenAI(api_key=self.config.get_value("api_key"), base_url=base_url)
         self.summary = self.state.get_value("last_summary") or ""
         self.last_message = datetime.fromisoformat("1970-01-01T00:00:00")
         self.delay = int(self.config.get_value("request_delay_ms")) / 100
@@ -93,7 +93,7 @@ Your user is named {self.config.get_value("username")}
             ]
 
         try:
-            response = self.client.chat.complete(
+            response = self.client.chat.completions.create(
                 model=self.model,
                 messages=self.messages,
                 tools=tools_schema,
@@ -101,7 +101,7 @@ Your user is named {self.config.get_value("username")}
             )
             
             # Extract the assistant's message
-            assistant_message = response.choices[0].message
+            assistant_message = response["choices"][0]["text"]
             
             # Append the assistant's message to the messages list
             if assistant_message.content or assistant_message.tool_calls:
@@ -121,7 +121,7 @@ Your user is named {self.config.get_value("username")}
             self.state.set_value("total-tokens", old_in_token + response.usage.total_tokens)
             self.state.write()
             
-        except SDKError as e:
+        except OpenAIError as e:
             print(f"ERROR: {e}")
             self.messages.append({"role": "assistant", "content": f"<<System message>> An error occurred while processing your request. {e}"})
             response = None
