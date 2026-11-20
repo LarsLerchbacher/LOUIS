@@ -12,6 +12,7 @@ import json
 import os
 from datetime import datetime
 import time
+import traceback
 
 class AgentLLM():
     """The tool selector and output generator of the program.
@@ -84,9 +85,9 @@ Your user is named {self.config.get_value("username")}
                 {
                     "type": "function",
                     "function": {
-                        "name": tool["name"],
-                        "description": tool["description"],
-                        "parameters": tool.get("parameters", {}),
+                        "name": tool["function"]["name"],
+                        "description": tool["function"]["description"],
+                        "parameters": tool["function"]["parameters"],
                     },
                 }
                 for tool in self.tools
@@ -101,15 +102,23 @@ Your user is named {self.config.get_value("username")}
             )
             
             # Extract the assistant's message
-            assistant_message = response["choices"][0]["text"]
+            assistant_message = response.choices[0].message
             
             # Append the assistant's message to the messages list
             if assistant_message.content or assistant_message.tool_calls:
-                self.messages.append({
-                    "role": "assistant",
-                    "content": assistant_message.content,
-                    "tool_calls": assistant_message.tool_calls
-                })
+                if len(assistant_message.tool_calls) > 0:
+                    self.messages.append({
+                        "role": "assistant",
+                        "content": assistant_message.content,
+                        "tool_calls": assistant_message.tool_calls
+                    })
+
+                else:
+                    self.messages.append({
+                        "role": "assistant",
+                        "content": assistant_message.content
+                    })
+
             else:
                 self.messages.append({"role": "assistant", "content": "<<System message>>The last request did not generate an assistant response.<</System message>>"})
             
@@ -122,8 +131,8 @@ Your user is named {self.config.get_value("username")}
             self.state.write()
             
         except OpenAIError as e:
-            print(f"ERROR: {e}")
-            self.messages.append({"role": "assistant", "content": f"<<System message>> An error occurred while processing your request. {e}"})
+            print(f"ERROR: {traceback.format_exc()}")
+            self.messages.append({"role": "assistant", "content": f"<<System message>> An error occurred while processing your request. {traceback.format_exc()}"})
             response = None
 
         return response

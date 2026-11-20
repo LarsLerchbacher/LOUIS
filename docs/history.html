@@ -29,8 +29,10 @@
             <p>The focus shifted to using the semantic network as a memory backend for AI. This phase included adding a chat interface, CLI commands, and a graph view for visualizing the memory.</p>
             <h3>OpenClaw and Token Efficiency</h3>
             <p>While testing OpenClaw, the main issues were its token inefficiency and lack of Linux support for voice interactions. This led to the decision to develop LOUIS into a full-fledged AI assistant with Mistral API integration and a focus on reducing token usage.</p>
+	    <h3>The end of Mistral's free tier</h3>
+    <p>Around summer 2026 Mistral AI silently dropped the API feature of their free tier. This meant, that LOUIS was broken. I had to repogram it to use an OpenAI compatible provider instead. I also removed the OpenWebUI specific features such as chat summarization, so it can be used with any program using OpenAIs chat completions endpoint.
             <h3>Current State</h3>
-            <p>LOUIS now features a custom interaction loop, modular capabilities, and efficient memory management. It is designed to be a lightweight, token-efficient alternative to other agent frameworks.</p>
+            <p>LOUIS now features a custom interaction loop, modular capabilities, and efficient memory management. It is designed to be a lightweight, token-efficient alternative to other agent frameworks. It can be used like a model, exposing an OpenAI compatible chat completions endpoint.</p>
         </section>
     </main>
     <footer>

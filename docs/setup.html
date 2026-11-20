@@ -54,7 +54,6 @@
                 <li>Add an OpenAI provider connection pointing to the LOUIS server at port 8000.</li>
                 <li>Disable all OpenWebUI features like Tools, WebSearch, Memory and notes for the LOUIS model, as it can't use them.</li>
 		<li>If you want to use the voice features of OpenWebUI, you need to set up a reverse proxy on the OpenWebUI host. See the <a href="https://docs.openwebui.com/">OpenWebUI docs</a> for details</li>
-		<li>Log into OpenWebUI in your browser and find the token cookie. This is belongs in the openwebui_token field in your config</li>
                 <li>Optionally, upload the LOUIS.png picture from this repo as the models Profile picture</li>
             </ol>
             <h3>Configuration</h3>
@@ -87,14 +86,12 @@
     "username": "Lars",
     "graph-model": "mistral-medium-2508",
     "chat-model": "devstral-2512",
-    "mistral_api_key": "your_mistral_api_key_here",
+    "base_url": "https://api.openai.com/v1/"
+    "api_key": "your_api_key_here",
     "temperature": 1.0,
     "request_delay_ms": 1250,
     "context_window": 131072,
     "context_warn_percentage": 90,
-    "openwebui_url": "https://10.0.0.30",
-    "openwebui_ca_cert": "/usr/local/share/ca-certificates/your-openwebui-rev-proxy-ca.crt",
-    "openwebui_token": "your_openwebui_token_here"
 }</pre>
             <h4>Notes</h4>
             <ul>

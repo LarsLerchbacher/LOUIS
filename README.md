@@ -14,14 +14,11 @@ L.O.U.I.S
 > [!WARNING]  
 > LOUIS is an experimental personal project and is currently under active development. Some features may be unstable.
 
-> [!WARNING]
-> This project is currently broken, due to Mistral AI shutting down/severly limiting their free API tier. I will update it so it can use any OpenAI compatible endpoint in the future. Sorry for the inconvinience.
-
 > [!CAUTION]
 > THIS PROJECT TRADES CONTROL OVER THE AIs ACTIONS FOR AN INDEPENDENT AGENT! In light of recent evens, it may be wise to only run this agent in a sandboxed environment such as a Virtual Machine and never let it touch critical files and infrastructure by external safeguards.
 
 ## What is LOUIS
-LOUIS is an experimental AI agent and API built around a custom long-term memory system based on a semantic network and spreading activation. It is primarily designed to be used as a backend for [Open WebUI](https://docs.openwebui.com/), with an additional CLI for direct interaction.
+LOUIS is an experimental AI agent and API built around a custom long-term memory system based on a semantic network and spreading activation. It is primarily designed to be used as an OpenAI compatible endpoint provider (like a custom model), with an additional CLI for direct interaction.
 
 ## Memory
 
@@ -40,8 +37,7 @@ To exit it, enter /exit<br>
 
 
 ### Intended use
-The intended use of LOUIS is combined with Open WebUI. This adds a lot of additional features, like chats, voice conversations and scheduled prompts.
-For this to work, you need to run an Open WebUI server and add an OpenAI endpoint, pointing to the IP address of the LOUIS server at port 8000.
+The intended use of LOUIS is via its API. You can use it with tools like OpenWebUI, HomeAssistant or anything that calls an OpenAI compatible endpoint. For this to work, you need to add an OpenAI endpoint to your program of choice, pointing to the IP address of the LOUIS server at port 8000.
 
 
 ### Memory

@@ -119,7 +119,7 @@ Your answer should not be encased in a markdown syntax block!
         )
 
         # Extract the assistant's message
-        assistant_message = response["choices"][0]["text"]
+        assistant_message = response.choices[0].message
         
         # Append the assistant's message to the messages list
         self.messages.append({

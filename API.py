@@ -17,11 +17,11 @@ import json
 import asyncio
 import os
 import threading
+import traceback
 import queue
 import sqlite3
 import requests
 from openai.types.chat import ChatCompletionMessage
-#from mistralai.client.models import AssistantMessage, ToolCall, FunctionCall
 
 class API:
     """OpenAI-compatible API server for interacting with the AI.
@@ -95,12 +95,12 @@ class API:
         
         self.close_db(db, cursor)
         
-        self.base_url = str(self.config.get_value("openwebui_url")) + "/api/v1"
+        """self.base_url = str(self.config.get_value("openwebui_url")) + "/api/v1"
         self.token = self.config.get_value('openwebui_token')
         self.ca_cert = self.config.get_value("openwebui_ca_cert")
         if not self.token:
             self.logger.error("Could not load Open WebUI token from config. Please make sure to include it in 'openwebui_token'.")
-            quit(1)
+            quit(1)"""
         
     
     def _get_headers(self):
@@ -108,35 +108,6 @@ class API:
             "Content-Type": "application/json",
             "Authorization": f"Bearer {self.token}"
     }
-    
-    def get_chat_history(self, chat_id):
-        msgs = []
-        chat_content = requests.get(f"{self.base_url}/chats/{chat_id}", headers=self._get_headers(), verify=self.ca_cert).json()
-        msg_id = chat_content["chat"]["history"]["currentId"]
-        msg = chat_content["chat"]["history"]["messages"][msg_id]
-        msg_id = msg["parentId"]
-        while not msg_id == None:
-            msg = chat_content["chat"]["history"]["messages"][msg_id]
-            
-            if msg["role"] != "assistant" or type(msg["content"]) == str:
-                msgs.append({"role": msg["role"], "content": msg["content"]})
-            else:
-                msgs.append({"role": msg["role"], "content": msg["output"][0]["content"][0]["text"]})
-        
-            msg_id = msg["parentId"]
-        
-        return msgs
-    
-    def clean_up_chats(self):
-        db, cursor = self.init_db()
-
-        chats = requests.get(self.base_url + "/chats/?page=1", headers=self._get_headers(), verify=self.ca_cert).json()
-        open_webui_ids = [chat["id"] for chat in chats]
-        for chat_id in [row[0] for row in cursor.execute("SELECT identifier FROM chats;").fetchall()]:
-            if chat_id not in open_webui_ids:
-                cursor.execute("DELETE FROM chats WHERE identifier == ?;", (chat_id, ))
-        
-        self.close_db(db, cursor)
 
     def safe_json_loads(self, s):
         """Necesary to avoid problems when the LLM uses newlines"""
@@ -144,138 +115,23 @@ class API:
         s = re.sub(r"[\x00-\x1f\x7f]", "", s)  # remove all other control chars
         return json.loads(s) 
 
-    async def _handle_reset_command(self, chat_id: str, response_queue: asyncio.Queue) -> None:
-        """
-        Handle the /reset command by creating a new session and storing the old session's summary.
-        """
-
-        db, cursor = self.init_db()
-
-        self.chat.agentLLM.messages.append({"role": "user", "content": """
-**Summarize the current conversation in 3-5 bullet points.**
-Focus only on **new information, decisions, or unresolved questions** since the last summary.
-Assume the reader already knows the prior context.
-If no meaningful progress was made, state: *"No significant updates since last summary."*
-Do not acknowledge this command or respond conversationally, just summarize.
-
-**Constraints:**
-- Max 5 bullet points.
-- No fluff, no philosophy, no sarcasm (unless critical).
-- Prioritize actionable or contextual details.
-
-**Summary:**"""})
-        
-        response = self.chat.agentLLM.client.chat.completions.create(
-            model=self.chat.agentLLM.model,
-            messages=self.chat.agentLLM.messages,
-            temperature=0.0,
-        )
-        
-        old_summary = cursor.execute("SELECT summary FROM chats WHERE identifier == ?;", (chat_id,)).fetchone()[0] or ""
-        new_summary = response["choices"][0]["text"] if response["choices"][0]["text"] else "No significant updates since last summary"
-        summary = old_summary + new_summary
-        cursor.execute("UPDATE chats SET summary = ? WHERE identifier == ?;", (summary, chat_id))
-            
-        
-        # Create a new session in OpenWebUI
-        new_chat_data = {
-            "model": self.config.get_value("name"),
-            "messages": [
-                {
-                    "role": "system",
-                    "content": self.chat.agentLLM.prompt
-                },
-                {
-                    "role": "user",
-                    "content": f"Previous session summary: {summary}"
-                }
-            ]
-        }
-        
-        cursor.execute(
-            "UPDATE chats SET messages = ? WHERE identifier == ?;",
-            (str(new_chat_data["messages"]), chat_id)
-        )
-
-        self.close_db(db, cursor)
-        
-        # Notify the user
-        await response_queue.put("Session reset successfully. Editing messages from above this message will no longer work as expected, as the messages don't exist for the AI anymore. It only has a summary of the most important events.")
-
     def _setup_routes(self):
         DONE_SENTINEL = object()
 
         @self.app.post("/chat/completions")
         async def chat_completions(request: Request):
-            self.clean_up_chats()
             data = await request.json()
-            
-            chat_id = None
-            try:
-                chats = requests.get(self.base_url + "/chats/?page=1", headers=self._get_headers(), verify=self.ca_cert).json()
-                for chat in chats:
-                    chat_content = requests.get(f"{self.base_url}/chats/{chat["id"]}", headers=self._get_headers(), verify=self.ca_cert).json()
-                    
-                    i = len(data["messages"])
-                    found = True 
-                    msg_id = chat_content["chat"]["history"]["currentId"]
-                    msg = chat_content["chat"]["history"]["messages"][msg_id]
-                    msg_id = msg["parentId"]
-                    while not msg_id == None:
-                        msg = chat_content["chat"]["history"]["messages"][msg_id]
-                        i -= 1
-                        
-                        if i < 0:
-                            found = False
-                            break
-                        
-                        if data["messages"][i]["role"] != msg["role"]:
-                            found = False
-                            break
-
-                        else:
-                            if msg["role"] == "assistant":
-                                if data["messages"][i]["content"] != msg["output"][0]["content"][0]["text"]:
-                                    found = False
-                                    break
-                    
-                        msg_id = msg["parentId"]
-                    
-                    if found == False:
-                        continue
-
-                    chat_id = chat["id"]
-                    break
-            except Exception as e:
-                self.logger.error(e)
-
             response_queue = asyncio.Queue()
-            has_user_message = False
-            is_reset = False
+            has_user_message = True
+            self.chat.agentLLM.messages = data["messages"][0:-1]
+            user_message = data["messages"][-1]["content"]
 
-            db, cursor = self.init_db()
-            if chat_id == None:
-                self.logger.error(f"Session not found. Please make sure you access the model via {self.base_url.removesuffix("/api/v1")}. Other OpenWebUI instances will not work.")
-                await response_queue.put("An error occurred")
-            elif chat_id not in [row[0] for row in cursor.execute("SELECT identifier FROM chats;").fetchall()]:
-                self.chat.agentLLM.messages = [{"role": "system", "content": self.chat.agentLLM.prompt}]
-                self.chat.agentLLM.messages.extend(data["messages"][:-1])
-                user_message = data["messages"][-1]["content"]
-                has_user_message = True
-                cursor.execute("INSERT INTO chats (identifier, messages) VALUES ( ?, ?);", (chat_id, str(self.chat.agentLLM.messages)))
-                await response_queue.put(f"Hello! I'm {self.config.get_value("name")}, your token-efficient AI assistant based on the LOUIS project. My source code is available under the AGPL license: https://github.com/LarsLerchbacher/LOUIS")
-            else:
-                self.chat.agentLLM.messages = eval(cursor.execute("SELECT messages FROM chats WHERE identifier == ?;", (chat_id, )).fetchone()[0])
-                user_message = data["messages"][-1]["content"]
-                has_user_message = True
-
-            self.close_db(db, cursor)
-            
-            # Check if the user wants to reset the session
-            if has_user_message:
-                if user_message.strip().lower() == "/reset":
-                    is_reset = True
-                    await self._handle_reset_command(chat_id, response_queue)
+            welcome_text = f"Hello! I'm {self.config.get_value("name")}, your token-efficient AI assistant based on the LOUIS project. My source code is available under the AGPL license: https://github.com/LarsLerchbacher/LOUIS" 
+            try:
+                if not welcome_text in data["messages"][1]["content"]:
+                    await response_queue.put(welcome_text)
+            except IndexError:
+                await response_queue.put(welcome_text)
 
             async def process_input():
                 loop = asyncio.get_event_loop()
@@ -314,10 +170,10 @@ Do not acknowledge this command or respond conversationally, just summarize.
                         }]
                     })}\n\n"
                 
-                if not is_reset:
+                """if not is_reset:
                     db, cursor = self.init_db()
                     cursor.execute("UPDATE chats SET messages = ? WHERE identifier == ?;", (str(self.chat.agentLLM.messages), chat_id))
-                    self.close_db(db, cursor)
+                    self.close_db(db, cursor)"""
 
             return StreamingResponse(generate(), media_type="text/event-stream")
         

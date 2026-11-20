@@ -11,6 +11,7 @@ from typing import Dict, List, Any, Callable, Optional
 from Graph import Graph
 import subprocess
 import threading
+import traceback
 import os
 
 
@@ -64,73 +65,96 @@ class ChatHandler:
         """
         self.tools = [
             {
-                "name": "msg",
-                "description": "Send a message to the user",
-                "parameters": {
-                    "type": "object",
-                    "properties": {
-                        "content": {"type": "string"},
-                        "waitForUser": {
-                            "type": "boolean",
-                            "description": "Should the user need to answer to this message? Set to False for status updates or other messages between task."
-                        }
-                    },
-                    "required": ["content", "waitForUser"]
+                "type": "function",
+                "function": {
+                    "name": "msg",
+                    "description": "Send a message to the user",
+                    "parameters": {
+                        "type": "object",
+                        "properties": {
+                            "content": {"type": "string"},
+                            "waitForUser": {
+                                "type": "boolean",
+                                "description": "Should the user need to answer to this message? Set to False for status updates or other messages between task."
+                            }
+                        },
+                        "required": ["content", "waitForUser"]
+                    }
                 }
             },
             {
-                "name": "mem_get",
-                "description": "Retrieve knowledge from memory",
-                "parameters": {
-                    "type": "object",
-                    "properties": {
-                        "subj": {"type": "string"},
-                        "intent": {"type": "string"}
-                    },
-                    "required": ["subj"]
+                "type": "function",
+                "function": {
+                    "name": "mem_get",
+                    "description": "Retrieve knowledge from memory",
+                    "parameters": {
+                        "type": "object",
+                        "properties": {
+                            "subj": {"type": "string"},
+                            "intent": {"type": "string"}
+                        },
+                        "required": ["subj"]
+                    }
                 }
             },
             {
-                "name": "mem_write",
-                "description": "Store memory in long-term memory",
-                "parameters": {
-                    "type": "object",
-                    "properties": {
-                        "text": {"type": "string"}
-                    },
-                    "required": ["text"]
+                "type": "function",
+                "function": {
+                    "name": "mem_write",
+                    "description": "Store memory in long-term memory",
+                    "parameters": {
+                        "type": "object",
+                        "properties": {
+                            "text": {"type": "string"}
+                        },
+                        "required": ["text"]
+                    }
                 }
             },
             {
-                "name": "mem_del",
-                "description": "Remove nodes or relations from memory",
-                "parameters": {
-                    "type": "object",
-                    "properties": {
-                        "mode": {"type": "string", "description": "Either NODE or RELATION"},
-                        "subj": {"type": "string"},
-                        "rel": {"type": "string"},
-                        "obj": {"type": "string"}
-                    },
-                    "required": ["mode", "subj"]
+                "type": "function",
+                "function" : {
+                    "name": "mem_del",
+                    "description": "Remove nodes or relations from memory",
+                    "parameters": {
+                        "type": "object",
+                        "properties": {
+                            "mode": {"type": "string", "description": "Either NODE or RELATION"},
+                            "subj": {"type": "string"},
+                            "rel": {"type": "string"},
+                            "obj": {"type": "string"}
+                        },
+                        "required": ["mode", "subj"]
+                    }
                 }
             },
             {
-                "name": "exec",
-                "description": "Execute a shell command",
-                "parameters": {
-                    "type": "object",
-                    "properties": {
-                        "command": {"type": "string"},
-                        "overwrite": {"type": "string", "description": "Stop last command and run new one"}
-                    },
-                    "required": ["command"]
+                "type": "function",
+                "function": {
+                    "name": "exec",
+                    "description": "Execute a shell command",
+                    "parameters": {
+                        "type": "object",
+                        "properties": {
+                            "command": {"type": "string"},
+                            "overwrite": {"type": "boolean", "description": "Stop last command and run new one"}
+                        },
+                        "required": ["command"]
+                    }
                 }
             },
             {
-                "name": "checkProc",
-                "description": "Gets the output of the last exec run.",
-                "parameters": {}
+                "type": "function",
+                "function": {
+                    "name": "checkProc",
+                    "description": "Gets the output of the last exec run.",
+                    "parameters": {
+                        "type": "object",
+                        "properties": {},
+                        "required": [],
+                        "additionalProperties": False
+                    }
+                }
             }
         ]
         
@@ -269,7 +293,7 @@ class ChatHandler:
             else:
                 return "Process is still running. Use this tool again later to check its status. Wait at least 20s before retrying."
         except Exception as e:
-            return e
+            return traceback.format_exc()
 
     def summarize(self) -> None:
         """
@@ -335,7 +359,7 @@ Do not acknowledge this command or respond conversationally, just summarize.
                 if str(filename).removesuffix(".md").lower() in message.lower():
                     self.logger.info(f"Injecting {filename}")
                     with open(os.path.join(dirpath, filename), mode="r") as file:
-                        self.agentLLM.messages.append({"role": "system", "content": "Auto injection of relevant capabilities: \n" + file.read()})
+                        self.agentLLM.messages.append({"role": "developer", "content": "Auto injection of relevant capabilities: \n" + file.read()})
 
             
     def process_message(self, sender: str = "user", message: str = "") -> Any:
@@ -349,6 +373,10 @@ Do not acknowledge this command or respond conversationally, just summarize.
         Returns:
             Any: The response from the agent.
         """
+
+        if type(self.agentLLM.messages) == str:
+            self.agentLLM.messages = json.loads(self.agentLLM.messages.replace('\'', '"'))
+        
         self.agentLLM.messages.append({"role": sender, "content": message})
         
         while not self.askUser:
@@ -379,8 +407,9 @@ Do not acknowledge this command or respond conversationally, just summarize.
                         except KeyError:
                             tool_response = "Tool not found!"
                         except Exception as e:
-                            tool_response = str(e)
+                            tool_response = str(traceback.format_exc())
                         
+
                         self.agentLLM.messages.append({
                             "role": "tool",
                             "tool_call_id": call.id,
@@ -404,4 +433,4 @@ Do not acknowledge this command or respond conversationally, just summarize.
                     self.state.write()
 
             except Exception as e:
-                self.send_message(f"An error occured while processing your request: {e}", True)
+                self.send_message(f"An error occured while processing your request: {traceback.format_exc()}", True)

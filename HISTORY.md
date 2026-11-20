@@ -18,3 +18,6 @@ OpenClaw is a **great** tool, and I think those people that can use it properly,
 # LOUIS is back!
 The missing Linux support for voice interactions (yes, I can use dictation mode, which somehow works even worse than sending voice messages over matrix to the same stt provider, but it doesn't even speak the responses out loud) and the token problem led to me wanting to create my own agent system. Something simpler, using less tokens, less built-in tools, more externalized "skill"-like reference files and a custom 
 interaction loop. That is why I started to convert LOUIS back into a full-flegged AI assistant. This time, with Mistral API integration, using the graph as a memory backend.
+
+# The end of the free tier on mistral.ai
+After Mistral decided to close their free tier for the API without ANY announcement at all and no changes to the pricing page in the docs, still stating that there was free API access, I needed to switch LOUIS to another provider. I had thought about doing that, so I could use it with local models and with this problem, I finaly started. It took a bit of work and a lot of debugging, but it should now work. I also removed the OpenWebUI specific features like chat summarization, so LOUIS can be used with any program accepting an OpenAI compatible completions endpoint.
