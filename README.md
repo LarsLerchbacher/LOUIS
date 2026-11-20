@@ -15,7 +15,7 @@ L.O.U.I.S
 > LOUIS is an experimental personal project and is currently under active development. Some features may be unstable.
 
 > [!CAUTION]
-> THIS PROJECT TRADES CONTROL OVER THE AIs ACTIONS FOR AN INDEPENDENT AGENT! In light of recent evens, it may be wise to only run this agent in a sandboxed environment such as a Virtual Machine and never let it touch critical files and infrastructure by external safeguards.
+> THIS PROJECT TRADES CONTROL OVER THE AIs ACTIONS FOR AN INDEPENDENT AGENT! In light of recent evens, it may be wise to only run this agent in a sandboxed environment such as a Virtual Machine and never let it touch critical files and infrastructure by adding external safeguards.
 
 ## What is LOUIS
 LOUIS is an experimental AI agent and API built around a custom long-term memory system based on a semantic network and spreading activation. It is primarily designed to be used as an OpenAI compatible endpoint provider (like a custom model), with an additional CLI for direct interaction.
