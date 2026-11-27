@@ -341,6 +341,16 @@ Do not acknowledge this command or respond conversationally, just summarize.
         self.response_queue = response_queue 
         self.event_loop = event_loop
 
+        if type(self.agentLLM.messages) == str:
+            self.agentLLM.messages = json.loads(self.agentLLM.messages.replace('\'', '"'))
+        
+        try: 
+            if not self.agentLLM.prompt in self.agentLLM.messages[0]["content"]:
+                self.agentLLM.messages[0]["content"] += self.agentLLM.prompt
+        except IndexError as e:
+            self.agentLLM.messages.append({"role": "system", "content": self.agentLLM.prompt})
+
+
         self.inject_capabilities(message)
         
         self.askUser = False
@@ -374,13 +384,7 @@ Do not acknowledge this command or respond conversationally, just summarize.
             Any: The response from the agent.
         """
 
-        if type(self.agentLLM.messages) == str:
-            self.agentLLM.messages = json.loads(self.agentLLM.messages.replace('\'', '"'))
-        
         self.agentLLM.messages.append({"role": sender, "content": message})
-
-        if not self.agentLLM.prompt in self.agentLLM.messages[0]["content"]:
-            self.agentLLM.messages[0]["content"] += self.agentLLM.prompt
         
         while not self.askUser:
             try:
