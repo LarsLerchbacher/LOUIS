@@ -359,7 +359,7 @@ Do not acknowledge this command or respond conversationally, just summarize.
                 if str(filename).removesuffix(".md").lower() in message.lower():
                     self.logger.info(f"Injecting {filename}")
                     with open(os.path.join(dirpath, filename), mode="r") as file:
-                        self.agentLLM.messages.append({"role": "developer", "content": "Auto injection of relevant capabilities: \n" + file.read()})
+                        self.agentLLM.messages[-1]["content"] += "Auto injection of relevant capabilities: \n" + file.read()
 
             
     def process_message(self, sender: str = "user", message: str = "") -> Any:
@@ -378,6 +378,9 @@ Do not acknowledge this command or respond conversationally, just summarize.
             self.agentLLM.messages = json.loads(self.agentLLM.messages.replace('\'', '"'))
         
         self.agentLLM.messages.append({"role": sender, "content": message})
+
+        if not self.agentLLM.prompt in self.agentLLM.messages[0]["content"]:
+            self.agentLLM.messages[0]["content"] += self.agentLLM.prompt
         
         while not self.askUser:
             try:
